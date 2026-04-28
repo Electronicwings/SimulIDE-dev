@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include <QMenu>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -248,6 +249,21 @@ void Function::contextMenu( QGraphicsSceneContextMenuEvent* event, QMenu* menu )
 
 void Function::loadData()
 {
+#ifdef __EMSCRIPTEN__
+    QFileDialog::getOpenFileContent( "",
+        [this]( const QString& fileName, const QByteArray& content )
+        {
+            if( fileName.isEmpty() ) return;
+            QStringList lines = QString::fromUtf8( content ).split( '\n' );
+            int i = 0;
+            for( QString line : lines )
+            {
+                if( line.remove(" ").isEmpty() ) continue;
+                if( i >= m_funcList.size() ) break;
+                m_funcList[i++] = line;
+            }
+        });
+#else
     QString fileName = QFileDialog::getOpenFileName( 0l, "Function::loadData", m_lastDir, "" );
 
     if( fileName.isEmpty() ) return; // User cancels loading
@@ -260,17 +276,23 @@ void Function::loadData()
         if( line.remove(" ").isEmpty() ) continue;
         if( i >= m_funcList.size() ) break;
         m_funcList[i++] = line;
-}   }
+    }
+#endif
+}
 
 void Function::saveData()
 {
+    QString output = "";
+    for( QString func : m_funcList ) output.append( func+"\n");
+
+#ifdef __EMSCRIPTEN__
+    QFileDialog::saveFileContent( output.toUtf8(), "functions.txt" );
+#else
     QString fileName = QFileDialog::getSaveFileName( MainWindow::self(), "Function::saveData", m_lastDir, "" );
 
     if( fileName.isEmpty() ) return; // User cancels saving
     m_lastDir = fileName;
     QFile outFile( fileName );
-    QString output = "";
-    for( QString func : m_funcList ) output.append( func+"\n");
 
     if( !outFile.open( QFile::WriteOnly | QFile::Text ) )
     {
@@ -280,7 +302,9 @@ void Function::saveData()
         QTextStream toFile( &outFile );
         toFile << output;
         outFile.close();
-}   }
+    }
+#endif
+}
 
 void Function::remove()
 {

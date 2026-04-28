@@ -13,6 +13,7 @@
 //
 // See copyright.txt file at root folder
 
+#include <QDebug>
 #include <QPainter>
 
 #include "itemlibrary.h"

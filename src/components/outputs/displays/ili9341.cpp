@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include "ili9341.h"
 #include "itemlibrary.h"
 

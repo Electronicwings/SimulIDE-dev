@@ -47,6 +47,13 @@ class Compiler : public QObject, public CompBase
         void loadCompiler( QString file );
         virtual int compile( bool debug );
 
+#ifdef __EMSCRIPTEN__
+        // WASM build path. Public so CodeEditor can bypass the virtual
+        // compile() chain (per-language overrides like InoDebugger don't go
+        // through the base implementation).
+        int remoteCompile( bool debug );
+#endif
+
         virtual void compilerProps();
 
         bool isProjectFile( QString file ) { return m_fileList.contains( file ); }

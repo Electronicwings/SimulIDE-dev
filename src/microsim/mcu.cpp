@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include <QDomDocument>
 #include <QFileInfo>
 #include <QTranslator>
@@ -477,16 +478,42 @@ QString Mcu::getEeprom()  // Used by property, stripped to last written value.
 
 void Mcu::loadEEPROM()
 {
-   QVector<int>* eeprom = m_eMcu.eeprom();
-   MemData::loadData( eeprom, false );
-   m_eMcu.setEeprom( eeprom );
-   if( m_mcuMonitor ) m_mcuMonitor->tabChanged( 1 );
+    QVector<int>* eeprom = m_eMcu.eeprom();
+    // On WASM the file arrives asynchronously, so the post-load steps must
+    // run in the callback. On desktop the callback fires synchronously.
+    MemData::loadData( eeprom, false, 8, [this, eeprom]( bool ok ){
+        if( !ok ) return;
+        m_eMcu.setEeprom( eeprom );
+        if( m_mcuMonitor ) m_mcuMonitor->tabChanged( 1 );
+    });
 }
 
 void Mcu::saveEEPROM() { MemData::saveData( m_eMcu.eeprom() ); }
 
 void Mcu::slotLoad()
 {
+#ifdef __EMSCRIPTEN__
+    // On WebAssembly, QFileDialog::getOpenFileName() is broken: the browser
+    // provides no "cancel" signal for <input type=file>, so cancelling the
+    // dialog leaves the nested QEventLoop suspended and eventually trips
+    // RuntimeError: unreachable. Use the async callback API instead; it
+    // simply does not fire on cancel.
+    QFileDialog::getOpenFileContent( tr("All files (*.*);;Hex Files (*.hex)"),
+        [this]( const QString& fileName, const QByteArray& fileContent )
+        {
+            if( fileName.isEmpty() ) return; // user cancelled
+
+            QString tmpPath = "/tmp/" + QFileInfo( fileName ).fileName();
+            QFile f( tmpPath );
+            if( !f.open( QIODevice::WriteOnly ) ){
+                qDebug() << "Mcu::slotLoad: cannot stage firmware at" << tmpPath;
+                return;
+            }
+            f.write( fileContent );
+            f.close();
+            load( tmpPath );
+        });
+#else
     QDir dir( m_lastFirmDir );
     if( !dir.exists() ) m_lastFirmDir = Circuit::self()->getFilePath();
 
@@ -496,6 +523,7 @@ void Mcu::slotLoad()
     if( fileName.isEmpty() ) return; // User cancels loading
 
     load( fileName );
+#endif
 }
 
 void Mcu::slotReload()

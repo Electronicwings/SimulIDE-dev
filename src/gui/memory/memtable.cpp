@@ -4,6 +4,7 @@
  ***( see copyright.txt file at root folder )*******************************/
 
 #include <math.h>
+#include <memory>
 #include <QToolTip>
 #include <QMenu>
 
@@ -280,17 +281,22 @@ void MemTable::saveTable()
 void MemTable::loadTable()
 {
     QVector<int> oldData { toIntVector() };
-    QVector<int> data(m_dataSize);
-    if ( MemData::loadData( &data,false ) ) {
-        for( int i=0; i<m_dataSize; ++i ) {
-            if ( oldData[i] != data[i] ) {
-                setValue(i, data[i]);
-                if ( m_data )
-                    m_data->replace(i, data[i]);
-                emit dataChanged(i, data[i]);
+    // Shared with the onDone callback — on WASM, loadData returns before
+    // the file content arrives, so the buffer must outlive this scope.
+    auto data = std::make_shared<QVector<int>>( m_dataSize );
+    MemData::loadData( data.get(), false, 8,
+        [this, oldData, data]( bool ok )
+        {
+            if( !ok ) return;
+            for( int i=0; i<m_dataSize; ++i ) {
+                if ( oldData[i] != (*data)[i] ) {
+                    setValue(i, (*data)[i]);
+                    if ( m_data )
+                        m_data->replace(i, (*data)[i]);
+                    emit dataChanged(i, (*data)[i]);
+                }
             }
-        }
-    }
+        });
 }
 
 void MemTable::cellClicked( int row, int col )

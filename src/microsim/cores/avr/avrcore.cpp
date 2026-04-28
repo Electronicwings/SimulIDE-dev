@@ -9,6 +9,7 @@
  *
  */
 
+#include <QDebug>
 #include "avrcore.h"
 #include "avr_defines.h"
 #include "avrsleep.h"

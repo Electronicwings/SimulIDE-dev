@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include "picintosc.h"
 #include "datautils.h"
 #include "simulator.h"

@@ -3,8 +3,10 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include <QTranslator>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 
 #include "mainwindow.h"
@@ -42,21 +44,54 @@ void MemData::showTable( int dataSize, int wordBytes )
     m_memTable->show();
 }
 
-bool MemData::loadData( QVector<int>* toData, bool resize, int bits )
+bool MemData::loadData( QVector<int>* toData, bool resize, int bits,
+                        std::function<void(bool)> onDone )
 {
     Simulator::self()->pauseSim();
 
+#ifdef __EMSCRIPTEN__
+    // WASM: browser file picker is async; Cancel sends no signal, so using
+    // the sync getOpenFileName() here hangs/crashes ASYNCIFY. Use the
+    // callback-based API and deliver the result via onDone.
+    QFileDialog::getOpenFileContent(
+        simulideTr( "MemData", "All files (*.*);;.data (*.data);;.bin (*.bin)"),
+        [toData, resize, bits, onDone]( const QString& fileName, const QByteArray& content )
+        {
+            if( fileName.isEmpty() ){
+                Simulator::self()->resumeSim();
+                if( onDone ) onDone( false );
+                return;
+            }
+            QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            QFile f( tmp );
+            bool ok = false;
+            if( f.open( QIODevice::WriteOnly ) ){
+                f.write( content );
+                f.close();
+                ok = loadFile( toData, tmp, resize, bits );
+            } else qDebug() << "MemData::loadData: cannot stage at" << tmp;
+            Simulator::self()->resumeSim();
+            if( onDone ) onDone( ok );
+        });
+    return false; // real result delivered via onDone
+#else
     QString dir = changeExt( Circuit::self()->getFilePath(), ".data" );
     QString fileName = QFileDialog::getOpenFileName( nullptr,
                                                     "MemData::loadData", dir,
                        simulideTr( "MemData", "All files (*.*);;.data (*.data);;.bin (*.bin)"));
 
-    if( fileName.isEmpty() ) return false; // User cancels loading
+    if( fileName.isEmpty() ){
+        Simulator::self()->resumeSim();
+        if( onDone ) onDone( false );
+        return false;
+    }
 
     bool ok = loadFile( toData, fileName, resize, bits );
     Simulator::self()->resumeSim();
+    if( onDone ) onDone( ok );
 
     return ok;
+#endif
 }
 
 bool MemData::loadFile( QVector<int>* toData, QString file, bool resize, int bits, eMcu* eMcu )
@@ -247,15 +282,38 @@ bool MemData::loadBin(QVector<int>* toData, QString file, bool resize, int bits 
 
 void MemData::saveData( QVector<int>* data, int bits )
 {
-     Simulator::self()->pauseSim();
+    Simulator::self()->pauseSim();
 
     QString dir = changeExt( Circuit::self()->getFilePath(), ".data" );
 
+#ifdef __EMSCRIPTEN__
+    // WASM has no native Save dialog: QFileDialog::saveFileContent() offers
+    // the bytes to the browser as a download. The user can rename in the
+    // download prompt but cannot pick the format here, so we always write
+    // the .data (text) format, which matches the default extension.
+    QString defName = QFileInfo( dir ).fileName();
+    if( !defName.endsWith(".data") ) defName = changeExt( defName, ".data" );
+
+    QString output;
+    int i = 0;
+    for( int val : *data )
+    {
+        QString sval = QString::number( val );
+        while( sval.length() < 4 ) sval.prepend( " " );
+        output += sval;
+        if( i == 15 ){ output += "\n"; i = 0; }
+        else         { output += ",";  i++;  }
+    }
+    QFileDialog::saveFileContent( output.toUtf8(), defName );
+    Simulator::self()->resumeSim();
+    (void)bits; // .data is text, byte width irrelevant
+    return;
+#else
     QString fileName = QFileDialog::getSaveFileName( MainWindow::self(),
                        simulideTr( "MemData", "Save Data" ), dir,
                        simulideTr( "MemData", "All files (*.*);;.data (*.data);;.bin (*.bin)"));
 
-    if( fileName.isEmpty() ) return; // User cancels saving
+    if( fileName.isEmpty() ){ Simulator::self()->resumeSim(); return; }
 
     QFile outFile( fileName );
     int bytes = (bits+7)/8;
@@ -299,6 +357,7 @@ void MemData::saveData( QVector<int>* data, int bits )
             outFile.close();
     }   }
     Simulator::self()->resumeSim();
+#endif
 }
 
 void MemData::saveDat( QVector<int>* data, int bits )

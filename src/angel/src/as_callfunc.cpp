@@ -843,4 +843,14 @@ int CallSystemFunction(int id, asCContext *context)
 	return popSize;
 }
 
+#ifdef __EMSCRIPTEN__
+// WASM has no native calling convention — stub to satisfy the linker.
+// Non-generic AngelScript function calls are unsupported on WASM.
+asQWORD CallSystemFunctionNative(asCContext *, asCScriptFunction *, void *, asDWORD *, void *, asQWORD &retQW2, void *)
+{
+    retQW2 = 0;
+    return 0;
+}
+#endif
+
 END_AS_NAMESPACE

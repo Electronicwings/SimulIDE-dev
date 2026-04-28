@@ -125,6 +125,13 @@ QString changeExt( QString filepath, QString ext )
 
 QString getDirDialog( QString msg, QString oldPath )
 {
+#ifdef __EMSCRIPTEN__
+    // The browser has no native directory picker comparable to
+    // QFileDialog::getExistingDirectory(), and the synchronous
+    // implementation hangs ASYNCIFY on cancel. Treat as cancelled.
+    (void)msg; (void)oldPath;
+    return QString();
+#else
     QString path = QFileDialog::getExistingDirectory( nullptr
                          , msg
                          , oldPath
@@ -133,6 +140,7 @@ QString getDirDialog( QString msg, QString oldPath )
 
     if( !path.isEmpty() && !path.endsWith("/") && !path.endsWith("\\") ) path += "/";
     return path;
+#endif
 }
 
 QString findFile( QString dir, QString fileName )

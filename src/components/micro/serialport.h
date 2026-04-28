@@ -5,6 +5,8 @@
 
 #pragma once
 
+#ifndef __EMSCRIPTEN__
+
 #include <QSerialPort>
 
 #include "component.h"
@@ -80,3 +82,5 @@ class SerialPort : public Component, public UsartModule, public eElement
         QSerialPort::StopBits    m_stopBits;*/
         QSerialPort::FlowControl m_flowControl;
 };
+
+#endif // __EMSCRIPTEN__

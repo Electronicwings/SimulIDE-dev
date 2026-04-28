@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include "iocomponent.h"
 #include "circuitwidget.h"
 #include "propdialog.h"

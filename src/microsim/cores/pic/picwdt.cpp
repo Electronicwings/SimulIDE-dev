@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include "picwdt.h"
 #include "e_mcu.h"
 #include "cpu8bits.h"

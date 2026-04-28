@@ -3,7 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
-//#include <QDebug>
+#include <QDebug>
 #include <QPainter>
 
 #include "tftcontroller.h"

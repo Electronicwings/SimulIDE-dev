@@ -3,10 +3,12 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include <QSplitter>
 #include <QToolButton>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QDesktopServices>
 #include <QSettings>
 
@@ -321,10 +323,28 @@ void CircuitWidget::openRecentFile()
 
 void CircuitWidget::openCirc()
 {
+#ifdef __EMSCRIPTEN__
+    // WASM: async picker. Cancel is a no-op (callback does not fire).
+    QFileDialog::getOpenFileContent( tr("Circuits (*.sim*);;All files (*.*)"),
+        [this]( const QString& fileName, const QByteArray& content )
+        {
+            if( fileName.isEmpty() ) return;
+            QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            QFile f( tmp );
+            if( !f.open( QIODevice::WriteOnly ) ){
+                qDebug() << "CircuitWidget::openCirc: cannot stage" << tmp;
+                return;
+            }
+            f.write( content );
+            f.close();
+            loadCirc( tmp );
+        });
+#else
     QString dir = m_lastCircDir;
     QString fileName = QFileDialog::getOpenFileName( MainWindow::self(), tr("Load Circuit"), dir,
                                         tr("Circuits (*.sim*);;All files (*.*)"));
     loadCirc( fileName );
+#endif
 }
 
 void CircuitWidget::loadCirc( QString path )
@@ -357,12 +377,24 @@ void CircuitWidget::saveCirc()
 
 void CircuitWidget::saveCircAs()
 {
+#ifdef __EMSCRIPTEN__
+    // WASM has no Save dialog. Use the current filename (or a default) and
+    // hand the serialized circuit to the browser as a download.
+    QString defName = m_curCirc.isEmpty() ? QString("circuit.sim2")
+                                          : QFileInfo( m_curCirc ).fileName();
+    if( !defName.endsWith(".sim2") ){
+        if( defName.endsWith(".sim1") ) defName.replace(".sim1",".sim2");
+        else                            defName.append(".sim2");
+    }
+    saveCirc( defName );
+#else
     const QString dir = m_lastCircDir;
     QString fileName = QFileDialog::getSaveFileName( MainWindow::self(), tr("Save Circuit"), dir,
                                                      tr("Circuits (*.sim*);;All files (*.*)") );
     if( fileName.isEmpty() ) return;
 
     saveCirc( fileName );
+#endif
 }
 
 void CircuitWidget::saveCirc( QString file )
@@ -370,6 +402,23 @@ void CircuitWidget::saveCirc( QString file )
     if     (  file.endsWith(".sim1") ) file.replace(".sim1",".sim2");
     else if( !file.endsWith(".sim2") ) file.append(".sim2");
 
+#ifdef __EMSCRIPTEN__
+    // Trigger a browser download of the serialized circuit. We cannot
+    // verify the user accepted the download, so always treat it as success
+    // for bookkeeping purposes.
+    QString oldFilePath = Circuit::self()->getFilePath();
+    Circuit::self()->setFilePath( file );
+    QString doc = Circuit::self()->circuitToString();
+    Circuit::self()->setFilePath( oldFilePath );
+
+    QFileDialog::saveFileContent( doc.toUtf8(), QFileInfo( file ).fileName() );
+
+    m_curCirc = file;
+    m_lastCircDir = file;
+    MainWindow::self()->setFile( QFileInfo( file ).fileName() );
+    MainWindow::self()->settings()->setValue( "lastCircDir", m_lastCircDir );
+    updateRecentFiles();
+#else
     if( Circuit::self()->saveCircuit( file ) )
     {
         m_curCirc = file;
@@ -379,6 +428,7 @@ void CircuitWidget::saveCirc( QString file )
         updateRecentFiles();
     }
     else qDebug() << "\nError Saving Circuit:\n" << file;
+#endif
 }
 
 void CircuitWidget::powerCirc()

@@ -8,6 +8,8 @@
 #include <QSvgGenerator>
 #include <QMimeData>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QBuffer>
 #include <QSettings>
 #include <QGuiApplication>
 #include <QScrollBar>
@@ -311,7 +313,19 @@ void CircuitView::slotPaste() { m_circuit->paste( m_eventpoint ); }
 void CircuitView::saveImage()
 {
     QString circPath = changeExt( Circuit::self()->getFilePath(), ".png" );
-    
+
+#ifdef __EMSCRIPTEN__
+    // No Save dialog on WASM. Default to PNG via the browser download flow.
+    QString defName = QFileInfo( circPath ).fileName();
+    if( defName.isEmpty() ) defName = "circuit.png";
+
+    QPixmap pixMap = this->grab();
+    QByteArray ba;
+    QBuffer buf( &ba );
+    buf.open( QIODevice::WriteOnly );
+    pixMap.save( &buf, "PNG" );
+    QFileDialog::saveFileContent( ba, defName );
+#else
     QString fileName = QFileDialog::getSaveFileName( MainWindow::self()
                             , tr( "Save as Image" )
                             , circPath
@@ -333,7 +347,10 @@ void CircuitView::saveImage()
         }else{
             QPixmap pixMap = this->grab();
             pixMap.save( fileName );
-}   }   }
+        }
+    }
+#endif
+}
 
 void CircuitView::drawBackground( QPainter* p, const QRectF &rect )
 {

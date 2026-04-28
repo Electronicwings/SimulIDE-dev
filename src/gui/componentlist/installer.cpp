@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include <QSettings>
 #include <QPushButton>
 #include <QNetworkReply>
@@ -19,7 +20,12 @@ Installer::Installer( QWidget* parent )
 {
     setupUi(this);
 
+#ifdef __EMSCRIPTEN__
+    // WASM: no network — list and zips are bundled at /data/components.
+    m_checkUpdates = false;
+#else
     m_checkUpdates = true; //false;
+#endif
     m_updated = false;
     m_changed = false;
 
@@ -29,8 +35,14 @@ Installer::Installer( QWidget* parent )
 
     m_compsUrl = "https://simulide.com/p/direct_downloads/components/";
 
+#ifdef __EMSCRIPTEN__
+    // Point at the preloaded bundle. The Emscripten VFS is writable, so zip
+    // extraction can still expand into the same directory.
+    m_compsDir.setPath( "/data/components" );
+#else
     m_compsDir.setPath( MainWindow::self()->getConfigPath("components") );
     if( !m_compsDir.exists() ) m_compsDir.mkpath(".");
+#endif
 
     loadList();
 
@@ -57,6 +69,24 @@ Installer::Installer( QWidget* parent )
 
         m_installed.insert( item->m_name, v );
     }
+
+#ifdef __EMSCRIPTEN__
+    // WASM: any component-set folder pre-extracted into the bundled
+    // /data/components dir is implicitly "installed", so the user doesn't
+    // have to click Install after every page refresh.
+    for( const QString& name : m_items.keys() )
+    {
+        if( m_installed.contains( name ) ) continue;
+        if( !m_compsDir.exists( name ) ) continue;
+
+        InstallItem* item = m_items.value( name );
+        int64_t v = item->m_versionNext ? item->m_versionNext : 1;
+        item->m_version = v;
+        item->shouldUpdate( v );
+        m_installed.insert( name, v );
+        qDebug() << "Installer: pre-extracted set detected" << name;
+    }
+#endif
 }
 
 void Installer::loadList()
@@ -195,6 +225,30 @@ void Installer::installItem( QString itemName )
 
     qDebug() << "Installing Component Set:" << itemName;
 
+    m_installItem = item;
+
+#ifdef __EMSCRIPTEN__
+    // The zip is already bundled in m_compsDir; skip network and extract directly.
+    QString zipFile = m_compsDir.filePath( m_installItem->m_file );
+    if( !QFileInfo::exists( zipFile ) ){
+        qDebug() << "Installer::installItem ERROR: bundled zip not found:" << zipFile;
+        m_installItem = nullptr;
+        if( !m_nextItem.isEmpty() ) installItem( m_nextItem );
+        return;
+    }
+    qZipReader qZip( zipFile );
+    bool isExtracted = qZip.extractAll( m_compsDir.absolutePath() );
+    if( isExtracted ){
+        QDir compSetDir = m_compsDir;
+        compSetDir.cd( m_installItem->m_name );
+        ComponentList::self()->LoadCompSetAt( compSetDir );
+        m_installed.insert( m_installItem->m_name, m_installItem->m_versionNext );
+        qDebug() << m_installItem->m_name << "Installed";
+    } else qDebug() << "Installer::installItem ERROR extracting" << zipFile;
+
+    m_installItem = nullptr;
+    if( !m_nextItem.isEmpty() ) installItem( m_nextItem );
+#else
     QString url = m_compsUrl+"dloadset.php?file="+item->m_file;
     QNetworkRequest request( url );
 
@@ -207,8 +261,7 @@ void Installer::installItem( QString itemName )
 
     QObject::connect( m_reply, &QNetworkReply::finished,
                      [=](){ itemDataReady(); } );
-
-    m_installItem = item;
+#endif
 }
 
 void Installer::unInstallItem( QString itemName )

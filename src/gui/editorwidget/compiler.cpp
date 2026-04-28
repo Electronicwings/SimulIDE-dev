@@ -9,6 +9,17 @@
 #include <QSettings>
 #include <QDir>
 
+#ifdef __EMSCRIPTEN__
+#include <QFile>
+#include <QFileInfo>
+#include <QUrl>
+#include <QNetworkAccessManager>
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QEventLoop>
+#include <QTimer>
+#endif
+
 #include "compiler.h"
 #include "simulator.h"
 #include "editorwindow.h"
@@ -232,6 +243,82 @@ int Compiler::compile( bool debug )
     QApplication::restoreOverrideCursor();
     return error;
 }
+
+#ifdef __EMSCRIPTEN__
+int Compiler::remoteCompile( bool debug )
+{
+    if( m_compName == "None" ){
+        m_outPane->appendLine( tr("     No Compiler Defined") );
+        return -1;
+    }
+
+    // In WASM there is no host filesystem we can rely on (saveAs only triggers
+    // a browser download and does not stage the buffer on MEMFS). Pull the
+    // current source straight from the editor document.
+    QByteArray source = m_editor->toPlainText().toUtf8();
+    if( source.isEmpty() ){
+        m_outPane->appendLine( "ERROR: editor buffer is empty" );
+        return -1;
+    }
+
+    m_outPane->appendLine( "-------------------------------------------------------" );
+    m_outPane->appendLine( QString( "Remote build: POST /api/build  (%1 bytes, %2)" )
+                              .arg( source.size() ).arg( m_compName ) );
+
+    QApplication::setOverrideCursor( Qt::WaitCursor );
+
+    QNetworkRequest req( QUrl( "/api/build" ) );
+    req.setHeader( QNetworkRequest::ContentTypeHeader, "application/octet-stream" );
+    req.setRawHeader( "X-Compiler",   m_compName.toUtf8() );
+    req.setRawHeader( "X-Device",     m_device.toUtf8() );
+    req.setRawHeader( "X-Family",     m_family.toUtf8() );
+    req.setRawHeader( "X-Extra-Args", m_extraArgs.toUtf8() );
+    req.setRawHeader( "X-Debug",      debug ? "1" : "0" );
+    req.setRawHeader( "X-File-Name",  (m_fileName + m_fileExt).toUtf8() );
+
+    QNetworkAccessManager nam;
+    QNetworkReply* reply = nam.post( req, source );
+
+    QEventLoop loop;
+    QTimer timeout; timeout.setSingleShot( true );
+    QObject::connect( &timeout, &QTimer::timeout, &loop, &QEventLoop::quit );
+    QObject::connect( reply, &QNetworkReply::finished, &loop, &QEventLoop::quit );
+    timeout.start( 60000 ); // 60s safety net
+    loop.exec();
+
+    int error = 0;
+    if( !reply->isFinished() ){
+        m_outPane->appendLine( "ERROR: build request timed out" );
+        reply->abort();
+        error = -1;
+    } else if( reply->error() != QNetworkReply::NoError ){
+        m_outPane->appendLine( "ERROR: " + reply->errorString() );
+        QByteArray body = reply->readAll();
+        if( !body.isEmpty() ) m_outPane->appendLine( QString::fromUtf8( body ) );
+        error = -1;
+    } else {
+        QByteArray hex = reply->readAll();
+        QString tmpHex = "/tmp/" + m_fileName + ".hex";
+        QFile out( tmpHex );
+        if( !out.open( QIODevice::WriteOnly ) ){
+            m_outPane->appendLine( "ERROR: cannot stage hex at " + tmpHex );
+            error = -1;
+        } else {
+            out.write( hex );
+            out.close();
+            QString log = QString::fromUtf8( reply->rawHeader( "X-Build-Log" ) );
+            if( !log.isEmpty() ) m_outPane->appendLine( "Build log: " + log );
+            m_outPane->appendLine( QString( "Build OK: %1 bytes -> %2" )
+                                       .arg( hex.size() ).arg( tmpHex ) );
+            compiled( tmpHex );
+        }
+    }
+    reply->deleteLater();
+
+    QApplication::restoreOverrideCursor();
+    return error;
+}
+#endif
 
 int Compiler::runBuildStep( QString fullCommand )
 {

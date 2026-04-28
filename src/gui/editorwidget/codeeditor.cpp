@@ -530,6 +530,13 @@ int CodeEditor::getSyntaxCoincidences()
 
 bool CodeEditor::compile( bool debug )
 {
+#ifdef __EMSCRIPTEN__
+    // WASM: saveAs() triggers a browser download and does not stage the buffer
+    // on MEMFS, so calling save() here is both unhelpful (no file written) and
+    // user-hostile (extra download per Compile click). The compiler reads the
+    // source directly from the editor buffer instead.
+    document()->setModified( false );
+#else
     if( document()->isModified() )
     {
         if( !EditorWindow::self()->save() )
@@ -537,10 +544,18 @@ bool CodeEditor::compile( bool debug )
             m_outPane->appendLine( "Error: File not saved" );
             return false;
     }   }
+#endif
     m_outPane->appendLine( "-------------------------------------------------------" );
     m_errors.clear();
     m_warnings.clear();
+#ifdef __EMSCRIPTEN__
+    // Bypass per-language overrides (InoDebugger, SdccDebugger, asDebugger)
+    // that all assume a host toolchain. The remote build endpoint accepts the
+    // raw source; selection of the actual toolchain happens server-side.
+    int error = m_compiler->remoteCompile( debug );
+#else
     int error = m_compiler->compile( debug );
+#endif
     update();
 
     if( error == 0 ) return true;

@@ -8,12 +8,30 @@ TARGET = simulide
 QT += svg
 QT += xml
 QT += widgets
-QT += concurrent
-QT += serialport
+QT += network
+!wasm: QT += concurrent
+!wasm: QT += serialport
 QT += multimedia widgets
 
 SOURCES      = $$files( $$PWD/src/*.cpp, true )
 HEADERS      = $$files( $$PWD/src/*.h, true )
+
+wasm {
+    SOURCES -= $$files( $$PWD/src/angel/JIT/*.cpp )
+
+    # ASYNCIFY: required for QEventLoop::exec() / QDrag::exec() in WASM.
+    # Use two-token "-s ASYNCIFY" — emscripten 1.39.x does not support "-sASYNCIFY=1".
+    QMAKE_LFLAGS       += -s ASYNCIFY
+    QMAKE_LFLAGS_DEBUG += -Os   # ASYNCIFY emits broken WASM without optimizations.
+
+    # Default ASYNCIFY stack (4096 bytes) overflows on Qt's deep call chains
+    # (context menu -> QFileDialog -> QDialog::exec -> processEvents -> emscripten_sleep).
+    QMAKE_LFLAGS += -s ASYNCIFY_STACK_SIZE=1048576
+
+    # Embed component data in the WASM package; applicationDirPath() returns "/" on WASM,
+    # so SimulIDE looks for "/data".
+    QMAKE_LFLAGS += --preload-file $$PWD/resources/data@/data
+}
 TRANSLATIONS = $$files( $$PWD/resources/translations/*.ts )
 FORMS       += $$files( $$PWD/src/*.ui, true )
 RESOURCES    = $$PWD/src/application.qrc
@@ -87,7 +105,7 @@ QMAKE_CXXFLAGS += -fno-strict-aliasing      #AngelScript
 QMAKE_CXXFLAGS += -Wno-cast-function-type   #AngelScript
 QMAKE_CXXFLAGS += -Wno-deprecated-copy      #AngelScript
 QMAKE_CXXFLAGS += -Wno-invalid-offsetof     #AngelScript
-QMAKE_CXXFLAGS += -Ofast
+!wasm: QMAKE_CXXFLAGS += -Ofast
 QMAKE_CXXFLAGS_DEBUG += -D_GLIBCXX_ASSERTIONS
 QMAKE_CXXFLAGS_DEBUG -= -O
 QMAKE_CXXFLAGS_DEBUG -= -O1
@@ -95,7 +113,13 @@ QMAKE_CXXFLAGS_DEBUG -= -O2
 QMAKE_CXXFLAGS_DEBUG -= -O3
 QMAKE_CXXFLAGS_DEBUG += -O0
 
-LIBS += -lz
+!wasm: LIBS += -lz
+wasm {
+    # emscripten's zlib port: provides headers at compile time and links zlib.
+    QMAKE_CFLAGS    += -s USE_ZLIB=1
+    QMAKE_CXXFLAGS  += -s USE_ZLIB=1
+    QMAKE_LFLAGS    += -s USE_ZLIB=1
+}
 
 win32 {
     OS = Windows

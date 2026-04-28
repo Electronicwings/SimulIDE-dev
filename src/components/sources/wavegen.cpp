@@ -387,6 +387,22 @@ void WaveGen::contextMenu( QGraphicsSceneContextMenuEvent* event, QMenu* menu )
 
 void WaveGen::slotLoad()
 {
+#ifdef __EMSCRIPTEN__
+    QFileDialog::getOpenFileContent( tr("Wav files (*.wav);;All files (*.*)"),
+        [this]( const QString& fileName, const QByteArray& content )
+        {
+            if( fileName.isEmpty() ) return;
+            QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            QFile f( tmp );
+            if( !f.open( QIODevice::WriteOnly ) ){
+                qDebug() << "WaveGen::slotLoad: cannot stage" << tmp;
+                return;
+            }
+            f.write( content );
+            f.close();
+            setFile( tmp );
+        });
+#else
     QString fil = m_background;
     if( fil.isEmpty() ) fil = Circuit::self()->getFilePath();
 
@@ -398,6 +414,7 @@ void WaveGen::slotLoad()
     if( fileName.isEmpty() ) return; // User cancels loading
 
     setFile( fileName );
+#endif
 }
 
 void WaveGen::setFile( QString fileName )

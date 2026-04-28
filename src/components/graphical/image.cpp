@@ -6,6 +6,8 @@
 #include <QMenu>
 #include <QMovie>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QBuffer>
 #include <QPainter>
 #include <QDebug>
 
@@ -77,6 +79,24 @@ void Image::contextMenu( QGraphicsSceneContextMenuEvent* event, QMenu* menu )
 
 void Image::slotLoad()
 {
+#ifdef __EMSCRIPTEN__
+    QFileDialog::getOpenFileContent( tr("All files (*.*)"),
+        [this]( const QString& fileName, const QByteArray& content )
+        {
+            if( fileName.isEmpty() ) return;
+            QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            QFile f( tmp );
+            if( !f.open( QIODevice::WriteOnly ) ){
+                qDebug() << "Image::slotLoad: cannot stage" << tmp;
+                return;
+            }
+            f.write( content );
+            f.close();
+            setBackground( tmp );
+            Shape::setHSize( m_image.width() );
+            Shape::setVSize( m_image.height() );
+        });
+#else
     QString fil = m_background;
     if( fil.isEmpty() ) fil = Circuit::self()->getFilePath();
 
@@ -90,15 +110,28 @@ void Image::slotLoad()
     setBackground( fileName );
     Shape::setHSize( m_image.width() );
     Shape::setVSize( m_image.height() );
+#endif
 }
 
 void Image::slotSave()
 {
+#ifdef __EMSCRIPTEN__
+    QString defName = QFileInfo( Circuit::self()->getFilePath() ).baseName();
+    if( defName.isEmpty() ) defName = "image";
+    defName += ".png";
+
+    QByteArray ba;
+    QBuffer buf( &ba );
+    buf.open( QIODevice::WriteOnly );
+    m_image.save( &buf, "PNG" );
+    QFileDialog::saveFileContent( ba, defName );
+#else
     QString dir = Circuit::self()->getFilePath();
     QString fileName = QFileDialog::getSaveFileName( MainWindow::self(), tr("Save Image"), dir, "");
     if( fileName.isEmpty() ) return;
 
     m_image.save( fileName );
+#endif
 }
 
 void Image::updateGif( const QRect &rect )

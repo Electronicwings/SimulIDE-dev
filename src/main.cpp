@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QTranslator>
 #include <QStandardPaths>
+#include <QSettings>
 #include <QtGui>
 
 #include "mainwindow.h"
@@ -50,6 +51,14 @@ QString langFile( QString locale )
 int main( int argc, char *argv[] )
 {
     qInstallMessageHandler( myMessageOutput );
+
+#ifdef __EMSCRIPTEN__
+    // Qt WASM's native QSettings backend (IndexedDB) has an async callback bug
+    // that crashes the app. Switch everything to synchronous IniFormat before
+    // any QSettings objects (including QFileDialog's internal ones) are created.
+    QSettings::setDefaultFormat( QSettings::IniFormat );
+    QSettings::setPath( QSettings::IniFormat, QSettings::UserScope, "/tmp" );
+#endif
 
 #ifdef _WIN32
     if (AttachConsole(ATTACH_PARENT_PROCESS)) {

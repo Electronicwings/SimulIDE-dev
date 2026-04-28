@@ -3,7 +3,10 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
+#ifndef __EMSCRIPTEN__
 #include <qtconcurrentrun.h>
+#endif
 #include <QHash>
 #include <math.h>
 
@@ -58,7 +61,9 @@ Simulator::Simulator( QObject* parent )
 }
 Simulator::~Simulator()
 {
+#ifndef __EMSCRIPTEN__
     m_CircuitFuture.waitForFinished();
+#endif
     delete m_matrix;
 }
 
@@ -123,6 +128,7 @@ void Simulator::timerEvent( QTimerEvent* e )  //update at m_timerTick_ms rate (5
     else if( m_warning < 0 )
     { if( ++m_warning == 0 ) CircuitWidget::self()->setMsg( " "+tr("Running")+" ", 0 ); }
 
+#ifndef __EMSCRIPTEN__
     if( !m_CircuitFuture.isFinished() ) // Stop remaining parallel thread
     {
         simState_t state = m_state;
@@ -131,6 +137,7 @@ void Simulator::timerEvent( QTimerEvent* e )  //update at m_timerTick_ms rate (5
         //while( m_state == SIM_WAITING ){;}
         m_state = state;
     }
+#endif
     if( m_debug && m_state == SIM_PAUSED ) CircuitWidget::self()->debugPaused();
 
     for( Updatable* el : m_updateList ) el->updateStep();
@@ -144,8 +151,12 @@ void Simulator::timerEvent( QTimerEvent* e )  //update at m_timerTick_ms rate (5
 
 
 
-    if( m_state == SIM_RUNNING ) // Run Circuit in a parallel thread
+    if( m_state == SIM_RUNNING ) // Run Circuit
+#ifdef __EMSCRIPTEN__
+        runCircuit();  // WASM: no threading, run synchronously
+#else
         m_CircuitFuture = QtConcurrent::run( [=](){ runCircuit(); } );
+#endif
 
     if( Circuit::self()->animateLogic() ) // Moved here to be in parallel with runCircuit thread
     {
@@ -460,7 +471,9 @@ void Simulator::stopSim()
         m_timerId = 0;
     }
     m_state = SIM_STOPPED;
+#ifndef __EMSCRIPTEN__
     if( !m_CircuitFuture.isFinished() ) m_CircuitFuture.waitForFinished();
+#endif
 
     qDebug() << "\n    Simulation Stopped ";
     qDebug() << "\n-------------------------------------------------\n ";
@@ -609,4 +622,6 @@ void Simulator::addToSocketList( Socket* el )
 void Simulator::remFromSocketList( Socket* el )
 { m_socketList.removeOne(el); }
 
-#include "moc_simulator.cpp"
+// #ifndef __EMSCRIPTEN__
+// #include "moc_simulator.cpp"
+// #endif

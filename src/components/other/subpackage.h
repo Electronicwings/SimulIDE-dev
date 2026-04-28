@@ -46,6 +46,7 @@ class SubPackage : public Chip, public Linker
         void setEventPin( Pin* pin ) { m_eventPin = pin; }
 
         void savePackage( QString fileName );
+        QString packageToString();
 
         void setSubcTypeStr( QString s ) override;
 

@@ -7,6 +7,7 @@
  *   santigoro@gmail.com                                                   *
  *                                                                         */
 
+#include <QDebug>
 #include <QPainter>
 #include <iostream>
 

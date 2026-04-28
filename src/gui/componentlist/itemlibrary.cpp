@@ -97,7 +97,9 @@
 #include "rtd.h"
 #include "scr.h"
 #include "sdcard.h"
+#ifndef __EMSCRIPTEN__
 #include "serialport.h"
+#endif
 #include "serialterm.h"
 #include "servo.h"
 #include "sevensegment.h"
@@ -269,7 +271,9 @@ void ItemLibrary::loadItems()
 
     addItem( new LibraryItem( QObject::tr("Peripherals"), "Micro", "perif.png","Peripherals", nullptr ) );
     addItem( SdCard::libraryItem() );
+#ifndef __EMSCRIPTEN__
     addItem( SerialPort::libraryItem() );
+#endif
     addItem( SerialTerm::libraryItem() );
     addItem( TouchPad::libraryItem() );
     addItem( KY023::libraryItem() );

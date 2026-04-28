@@ -3,6 +3,9 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#ifndef __EMSCRIPTEN__
+
+#include <QDebug>
 #include <QGraphicsProxyWidget>
 #include <QPainter>
 #include <QMenu>
@@ -284,3 +287,5 @@ void SerialPort::paint( QPainter* p, const QStyleOptionGraphicsItem* o, QWidget*
 
     Component::paintSelected( p );
 }
+
+#endif // __EMSCRIPTEN__

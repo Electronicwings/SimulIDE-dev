@@ -5,6 +5,8 @@
 
 #include <QMouseEvent>
 #include <QFileDialog>
+#include <QFile>
+#include <QFileInfo>
 
 #include "lawidget.h"
 #include "logicanalizer.h"
@@ -163,12 +165,29 @@ void LaWidget::on_condEdit_editingFinished()
 
 void LaWidget::on_exportData_clicked()
 {
+#ifdef __EMSCRIPTEN__
+    // dumpData() writes via QFile to a real path — stage it in /tmp, then
+    // hand the bytes to the browser as a download.
+    QString defName = QFileInfo( m_analizer->getExportFile() ).fileName();
+    if( defName.isEmpty() )         defName = "analizer.vcd";
+    if( !defName.endsWith(".vcd") ) defName += ".vcd";
+
+    QString tmp = "/tmp/" + defName;
+    m_analizer->dumpData( tmp );
+
+    QFile f( tmp );
+    if( !f.open( QIODevice::ReadOnly ) ) return;
+    QByteArray ba = f.readAll();
+    f.close();
+    QFileDialog::saveFileContent( ba, defName );
+#else
     QString fileName = QFileDialog::getSaveFileName( MainWindow::self(), tr("Export Data"), m_analizer->getExportFile(),
                                                      tr("VCD files (*.vcd);;All files (*.*)") );
     if( fileName.isEmpty() ) return;
     if( !fileName.endsWith(".vcd") ) fileName += ".vcd";
 
     m_analizer->dumpData( fileName );
+#endif
 }
 
 void LaWidget::closeEvent( QCloseEvent* event )

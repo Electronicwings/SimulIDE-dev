@@ -173,6 +173,15 @@ void RamTable::clearTable()
 
 void RamTable::loadVarSet()
 {
+#ifdef __EMSCRIPTEN__
+    QFileDialog::getOpenFileContent( tr("VarSets (*.vst);;All files (*.*)"),
+        [this]( const QString& fileName, const QByteArray& content )
+        {
+            if( fileName.isEmpty() ) return;
+            QStringList varSet = QString::fromUtf8( content ).split( '\n', QString::SkipEmptyParts );
+            if( !varSet.isEmpty() ) loadVarSet( varSet );
+        });
+#else
     const QString dir = Circuit::self()->getFilePath();
 
     QString fileName = QFileDialog::getOpenFileName( this, tr("Load VarSet"), dir, tr("VarSets (*.vst);;All files (*.*)"));
@@ -181,7 +190,9 @@ void RamTable::loadVarSet()
     {
         QStringList varSet = fileToStringList( fileName, "RamTable::loadVarSet" );
         if( !varSet.isEmpty() ) loadVarSet( varSet );
-}   }
+    }
+#endif
+}
 
 void RamTable::loadVarSet( QStringList varSet )
 {
@@ -218,6 +229,13 @@ QStringList RamTable::getVarSet()
 
 void RamTable::saveVarSet()
 {
+    QString output;
+    for( int row=0; row<m_numRegs; row++ )
+        output += table->item( row, 1 )->text() + "\n";
+
+#ifdef __EMSCRIPTEN__
+    QFileDialog::saveFileContent( output.toUtf8(), "varset.vst" );
+#else
     const QString dir = Circuit::self()->getFilePath();
 
     QString fileName = QFileDialog::getSaveFileName( MainWindow::self(), tr("Save VarSet"), dir,
@@ -239,15 +257,12 @@ void RamTable::saveVarSet()
         QTextStream out(&file);
         out.setCodec("UTF-8");
         QApplication::setOverrideCursor(Qt::WaitCursor);
-
-        for( int row=0; row<m_numRegs; row++ )
-        {
-            QString name = table->item( row, 1 )->text();
-            out << name << "\n";
-        }
+        out << output;
         file.close();
         QApplication::restoreOverrideCursor();
-}   }
+    }
+#endif
+}
 
 void RamTable::setRegisters( QStringList regs )
 {

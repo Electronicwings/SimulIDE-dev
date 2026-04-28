@@ -3,11 +3,13 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include <QWidget>
 #include <QTabWidget>
 #include <QTabBar>
 #include <QToolBar>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QGridLayout>
@@ -238,11 +240,30 @@ int EditorWidget::calcTabstopWidth()
 
 void EditorWidget::open()
 {
+#ifdef __EMSCRIPTEN__
+    // WASM: async picker. Cancel does not fire the callback.
+    QFileDialog::getOpenFileContent(
+        tr("All files")+" (*);;Arduino (*.ino);;Asm (*.asm);;GcBasic (*.gcb)",
+        [this]( const QString& fileName, const QByteArray& content )
+        {
+            if( fileName.isEmpty() ) return;
+            QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            QFile f( tmp );
+            if( !f.open( QIODevice::WriteOnly ) ){
+                qDebug() << "EditorWidget::open: cannot stage" << tmp;
+                return;
+            }
+            f.write( content );
+            f.close();
+            loadFile( tmp );
+        });
+#else
     QString dir = m_lastDir;
     QString fileName = QFileDialog::getOpenFileName( this, tr("Load File"), dir,
                        tr("All files")+" (*);;Arduino (*.ino);;Asm (*.asm);;GcBasic (*.gcb)" );
 
     if( !fileName.isEmpty() ) loadFile( fileName );
+#endif
 }
 
 void EditorWidget::openRecentFile()
@@ -354,15 +375,33 @@ void EditorWidget::reload()
 
 bool EditorWidget::save()
 {
+#ifdef __EMSCRIPTEN__
+    // WASM has no writable host path; always route through the browser
+    // download flow in saveAs().
+    return saveAs();
+#else
     QString file = getCodeEditor()->getFile();
     if( file.isEmpty() ) return saveAs();
     else                 return saveFile( file );
+#endif
 }
 
 bool EditorWidget::saveAs()
 {
     CodeEditor* ce = getCodeEditor();
 
+#ifdef __EMSCRIPTEN__
+    // WASM: no Save dialog. Push the document to the browser as a download
+    // named after the current file (or a default).
+    QString defName = QFileInfo( ce->getFile() ).fileName();
+    if( defName.isEmpty() ) defName = "untitled.txt";
+
+    QFileDialog::saveFileContent( ce->toPlainText().toUtf8(), defName );
+
+    ce->document()->setModified( false );
+    documentWasModified();
+    return true;
+#else
     QFileInfo fi = QFileInfo( ce->getFile() );
     QString ext  = fi.suffix();
     QString path = fi.absolutePath();
@@ -379,6 +418,7 @@ bool EditorWidget::saveAs()
     m_fileList[fileName] = ce;
 
     return saveFile( fileName );
+#endif
 }
 
 bool EditorWidget::saveFile( QString fileName )

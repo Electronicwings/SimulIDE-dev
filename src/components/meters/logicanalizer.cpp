@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QTextStream>
 #include <QGraphicsProxyWidget>
 #include <QFile>
 

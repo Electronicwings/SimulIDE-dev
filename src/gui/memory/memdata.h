@@ -6,6 +6,7 @@
 #pragma once
 
 #include <QVector>
+#include <functional>
 
 class MemTable;
 class eMcu;
@@ -16,7 +17,11 @@ class MemData
         MemData();
         ~MemData();
 
-        static bool loadData( QVector<int>* toData, bool resize=false, int bits=8 );
+        // On WebAssembly loadData is asynchronous: the return value is always
+        // false and the real result is delivered via onDone. On desktop it
+        // behaves synchronously and also invokes onDone if supplied.
+        static bool loadData( QVector<int>* toData, bool resize=false, int bits=8,
+                              std::function<void(bool)> onDone = nullptr );
         static void saveData( QVector<int>* data, int bits=8 );
 
         static bool loadFile( QVector<int>* toData, QString file, bool resize, int bits, eMcu* eMcu=nullptr );

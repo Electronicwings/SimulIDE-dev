@@ -526,6 +526,11 @@
         #endif
         #define AS_WIN
         #define AS_WINDOWS_THREADS
+    // WebAssembly (Emscripten) - no native calling conventions
+    #elif defined(__EMSCRIPTEN__)
+        #define AS_MAX_PORTABILITY
+        #define AS_POSIX_THREADS
+
     // Linux
     #elif defined(__linux__) && !defined(ANDROID) && !defined(__ANDROID__)
 

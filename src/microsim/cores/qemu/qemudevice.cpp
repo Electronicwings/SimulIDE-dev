@@ -3,7 +3,8 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
-#include <qtconcurrentrun.h>
+#include <QDebug>
+// #include <qtconcurrentrun.h>
 #include <QLibrary>
 #include <QFileDialog>
 #include <QFileInfo>

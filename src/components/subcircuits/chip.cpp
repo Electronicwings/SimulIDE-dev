@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include "chip.h"
 #include "circuitwidget.h"
 #include "mainwindow.h"

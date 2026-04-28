@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include "mcuadc.h"
 #include "mcupin.h"
 #include "e_mcu.h"

@@ -3,6 +3,7 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QDebug>
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QClipboard>
@@ -509,6 +510,18 @@ void Circuit::importCircuit()
 
     m_deltaMove = QPointF( 0, 0 );
 
+#ifdef __EMSCRIPTEN__
+    QFileDialog::getOpenFileContent( tr("Circuits (*.sim*);;All files (*.*)"),
+        [this]( const QString& fileName, const QByteArray& content )
+        {
+            if( fileName.isEmpty() ) return;
+            if( !fileName.endsWith(".sim2") && !fileName.endsWith(".sim1") ) return;
+
+            QApplication::clipboard()->setText( QString::fromUtf8( content ) );
+            m_eventpoint = QPointF(0,0);
+            paste( QPointF(0,0) );
+        });
+#else
     QString filePath = QFileDialog::getOpenFileName( 0l, tr("Import Circuit"), m_filePath,
                                           tr("Circuits (*.sim*);;All files (*.*)"));
 
@@ -519,6 +532,7 @@ void Circuit::importCircuit()
 
     m_eventpoint = QPointF(0,0);
     paste( QPointF(0,0) );
+#endif
 }
 
 void Circuit::addNode( Node* node )

@@ -76,7 +76,9 @@ ScriptBase::~ScriptBase()
 
     if( m_context ) m_context->Release();
     if( m_aEngine ) m_aEngine->ShutDownAndRelease();
-    if( m_jit )     delete m_jit;
+#ifdef __x86_64__
+    if( m_jit )     delete m_jit;  // asCJITCompiler is only a complete type on x86_64
+#endif
 }
 
 void ScriptBase::setScriptFile( QString scriptFile, bool )

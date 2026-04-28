@@ -21,8 +21,13 @@ enum simState_t{
     SIM_DEBUG,
 };
 
+#include <QObject>
+#include <QTimerEvent>
+#include <QMap>
 #include <QElapsedTimer>
+#ifndef __EMSCRIPTEN__
 #include <QFuture>
+#endif
 
 class BaseProcessor;
 class Updatable;
@@ -36,7 +41,7 @@ class Simulator : public QObject
 {
         friend class eNode;
 
-    Q_OBJECT
+//     Q_OBJECT
     public:
         Simulator( QObject* parent=0 );
         ~Simulator();
@@ -130,7 +135,9 @@ class Simulator : public QObject
         uint64_t m_maxfinds;
 #endif
 
+#ifndef __EMSCRIPTEN__
         QFuture<void> m_CircuitFuture;
+#endif
 
         CircMatrix* m_matrix;
 

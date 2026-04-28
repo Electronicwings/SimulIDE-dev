@@ -1,0 +1,268 @@
+# qt5.15.2-wasm-asyncify.patch
+#
+# Tag: qt-5.15.2
+# Target: qtbase (apply from inside the qtbase/ source tree)
+# Purpose: Make Qt 5.15.2 WebAssembly (emscripten) builds with ASYNCIFY
+#          enabled run reliably. Without these patches the runtime crashes
+#          with "RuntimeError: unreachable" on the first nested event loop
+#          (QFileDialog, QDialog::exec, QMenu::exec, QDrag::exec, ...) and
+#          may use-after-free on shutdown when QSettings has pending
+#          IndexedDB I/O.
+#
+# Configure Qt with:
+#   ./configure -xplatform wasm-emscripten \
+#               -device-option EMSCRIPTEN_ASYNCIFY=1 \
+#               -nomake tests -nomake examples \
+#               -opensource -confirm-license -prefix <install-dir>
+#
+# Apply with:
+#   cd <qt5-source>/qtbase
+#   git apply ../../qt5.15.2-wasm-asyncify.patch
+#   # or, outside git:
+#   patch -p1 < ../../qt5.15.2-wasm-asyncify.patch
+#
+# Files changed (all under qtbase/):
+#   mkspecs/wasm-emscripten/qmake.conf
+#       - Toolchain spec: when EMSCRIPTEN_ASYNCIFY=1, link with
+#         EXIT_RUNTIME=0 (keep the runtime alive after main returns so
+#         pending RAF/ResizeObserver/IndexedDB callbacks still fire).
+#         Non-ASYNCIFY builds keep the original EXIT_RUNTIME=1.
+#
+#   src/corelib/global/qfloat16.h
+#   src/corelib/text/qbytearraymatcher.h
+#       - Compile fixes for the wasm-emscripten toolchain.
+#
+#   src/corelib/kernel/qeventloop.cpp
+#       - Under ASYNCIFY, QEventLoop::exit() at the outermost loopLevel
+#         must NOT call emscripten_force_exit() (which tears down the
+#         runtime). With ASYNCIFY exec() returns naturally; nested loops
+#         (drag/menu/dialog) need normal exit semantics.
+#
+#   src/plugins/platforms/wasm/qwasmeventdispatcher.cpp
+#       - Under ASYNCIFY, allow nested QEventLoop::exec() (QDialog,
+#         QMenu, QDrag, QFileDialog, ...). On re-entry yield to the
+#         browser via emscripten_sleep(0) and process pending events
+#         instead of asserting. Stock Qt5 forbids nesting on WASM.
+#
+#   src/corelib/io/qsettings_wasm.cpp
+#       - Track live QWasmSettingsPrivate instances in a static set so
+#         async IndexedDB callbacks (onLoad/onError/onStore/onCheck) skip
+#         the dereference if the object was destroyed before the callback
+#         fired. Required because EXIT_RUNTIME=0 lets shutdown sequences
+#         interleave with in-flight I/O. Also routes non-NativeFormat
+#         QSettings to the file-based backend (IniFormat shouldn't be
+#         silently rerouted through IndexedDB).
+#
+# Not in this patch (handled separately):
+#   - Replaced src/plugins/platforms/wasm/qtloader.js
+#   - Replaced src/plugins/platforms/wasm/wasm_shell.html
+#     (these are full file replacements, not diffs; copy them in place
+#      after applying the patch).
+#
+# ----------------------------------------------------------------------
+
+diff --git a/mkspecs/wasm-emscripten/qmake.conf b/mkspecs/wasm-emscripten/qmake.conf
+index 2b108a5e900..f63b1c8ff8c 100644
+--- a/mkspecs/wasm-emscripten/qmake.conf
++++ b/mkspecs/wasm-emscripten/qmake.conf
+@@ -37,12 +37,20 @@ EMCC_COMMON_LFLAGS += \
+     -s FULL_ES2=1 \
+     -s FULL_ES3=1 \
+     -s USE_WEBGL2=1 \
+-    -s EXIT_RUNTIME=1 \
+     -s ERROR_ON_UNDEFINED_SYMBOLS=1 \
+     -s EXTRA_EXPORTED_RUNTIME_METHODS=[\"UTF16ToString\",\"stringToUTF16\"] \
+     --bind \
+     -s FETCH=1
+ 
++# With ASYNCIFY, emscripten_set_main_loop_arg() causes main() to "return" to JS
++# while the C stack is saved. EXIT_RUNTIME=1 would then destroy the runtime,
++# breaking ResizeObserver/RAF callbacks. Keep it alive with EXIT_RUNTIME=0.
++equals(EMSCRIPTEN_ASYNCIFY, 1): {
++    EMCC_COMMON_LFLAGS += -s EXIT_RUNTIME=0
++} else {
++    EMCC_COMMON_LFLAGS += -s EXIT_RUNTIME=1
++}
++
+ # The -s arguments can also be used with release builds,
+ # but are here in debug for clarity.
+ EMCC_COMMON_LFLAGS_DEBUG = \
+diff --git a/src/corelib/global/qfloat16.h b/src/corelib/global/qfloat16.h
+index c7a9c87af32..3287d7cbf29 100644
+--- a/src/corelib/global/qfloat16.h
++++ b/src/corelib/global/qfloat16.h
+@@ -44,6 +44,7 @@
+ #include <QtCore/qglobal.h>
+ #include <QtCore/qmetatype.h>
+ #include <string.h>
++#include <limits>
+ 
+ #if defined(QT_COMPILER_SUPPORTS_F16C) && defined(__AVX2__) && !defined(__F16C__)
+ // All processors that support AVX2 do support F16C too. That doesn't mean
+diff --git a/src/corelib/io/qsettings_wasm.cpp b/src/corelib/io/qsettings_wasm.cpp
+index 8d8f4b505cd..48eb6f9ff1e 100644
+--- a/src/corelib/io/qsettings_wasm.cpp
++++ b/src/corelib/io/qsettings_wasm.cpp
+@@ -49,12 +49,18 @@
+ 
+ #include <QFileInfo>
+ #include <QDir>
++#include <QSet>
+ #include <emscripten.h>
+ 
+ QT_BEGIN_NAMESPACE
+ 
+ static bool isReadReady = false;
+ 
++// Track live QWasmSettingsPrivate instances to guard against
++// dangling-pointer callbacks when the object is deleted before
++// an async IndexedDB operation completes.
++static QSet<void*> g_liveWasmSettings;
++
+ class QWasmSettingsPrivate : public QConfFileSettingsPrivate
+ {
+ public:
+@@ -81,6 +87,7 @@ private:
+ 
+ static void QWasmSettingsPrivate_onLoad(void *userData, void *dataPtr, int size)
+ {
++    if (!g_liveWasmSettings.contains(userData)) return;
+     QWasmSettingsPrivate *wasm = reinterpret_cast<QWasmSettingsPrivate *>(userData);
+ 
+     QFile file(wasm->fileName());
+@@ -98,27 +105,26 @@ static void QWasmSettingsPrivate_onLoad(void *userData, void *dataPtr, int size)
+ 
+ static void QWasmSettingsPrivate_onError(void *userData)
+ {
++    if (!g_liveWasmSettings.contains(userData)) return;
+     QWasmSettingsPrivate *wasm = reinterpret_cast<QWasmSettingsPrivate *>(userData);
+-    if (wasm)
+-        wasm->setStatus(QSettings::AccessError);
++    wasm->setStatus(QSettings::AccessError);
+ }
+ 
+ static void QWasmSettingsPrivate_onStore(void *userData)
+ {
++    if (!g_liveWasmSettings.contains(userData)) return;
+     QWasmSettingsPrivate *wasm = reinterpret_cast<QWasmSettingsPrivate *>(userData);
+-    if (wasm)
+-        wasm->setStatus(QSettings::NoError);
++    wasm->setStatus(QSettings::NoError);
+ }
+ 
+ static void QWasmSettingsPrivate_onCheck(void *userData, int exists)
+ {
++    if (!g_liveWasmSettings.contains(userData)) return;
+     QWasmSettingsPrivate *wasm = reinterpret_cast<QWasmSettingsPrivate *>(userData);
+-    if (wasm) {
+-        if (exists)
+-            wasm->loadLocal(wasm->fileName().toLocal8Bit());
+-        else
+-            wasm->setReady();
+-    }
++    if (exists)
++        wasm->loadLocal(wasm->fileName().toLocal8Bit());
++    else
++        wasm->setReady();
+ }
+ 
+ QSettingsPrivate *QSettingsPrivate::create(QSettings::Format format,
+@@ -126,7 +132,13 @@ QSettingsPrivate *QSettingsPrivate::create(QSettings::Format format,
+                                            const QString &organization,
+                                            const QString &application)
+ {
+-    Q_UNUSED(format)
++    // Only use the WASM/IndexedDB backend for NativeFormat.
++    // IniFormat and any other format should use the file-based backend so that
++    // QSettings::setDefaultFormat(IniFormat) actually takes effect and avoids
++    // the async IndexedDB callbacks entirely.
++    if (format != QSettings::NativeFormat)
++        return new QConfFileSettingsPrivate(format, scope, organization, application);
++
+     if (organization == QLatin1String("Qt"))
+     {
+         QString organizationDomain = QCoreApplication::organizationDomain();
+@@ -148,6 +160,7 @@ QWasmSettingsPrivate::QWasmSettingsPrivate(QSettings::Scope scope, const QString
+                                            const QString &application)
+     : QConfFileSettingsPrivate(QSettings::NativeFormat, scope, organization, application)
+ {
++    g_liveWasmSettings.insert(this);
+     setStatus(QSettings::AccessError); // access error until sandbox gets loaded
+     databaseName = organization;
+     id = application;
+@@ -161,6 +174,7 @@ QWasmSettingsPrivate::QWasmSettingsPrivate(QSettings::Scope scope, const QString
+ 
+ QWasmSettingsPrivate::~QWasmSettingsPrivate()
+ {
++    g_liveWasmSettings.remove(this);
+ }
+ 
+  void QWasmSettingsPrivate::initAccess()
+diff --git a/src/corelib/kernel/qeventloop.cpp b/src/corelib/kernel/qeventloop.cpp
+index 5a5dfb06aa9..2d744b1dc7d 100644
+--- a/src/corelib/kernel/qeventloop.cpp
++++ b/src/corelib/kernel/qeventloop.cpp
+@@ -292,11 +292,21 @@ void QEventLoop::exit(int returnCode)
+     threadData->eventDispatcher.loadRelaxed()->interrupt();
+ 
+ #ifdef Q_OS_WASM
+-    // QEventLoop::exec() never returns in emscripten. We implement approximate behavior here.
++    // QEventLoop::exec() never returns in emscripten without ASYNCIFY.
+     // QTBUG-70185
++    //
++    // With ASYNCIFY enabled, nested event loops (QDrag::exec, QMenu::exec, etc.)
++    // are supported via emscripten_sleep. After the outer app.exec() exits via the
++    // SimulateInfiniteLoop exception, loopLevel returns to 0. When a nested loop
++    // (drag, menu) then runs, its loopLevel is 1. Calling emscripten_force_exit
++    // here would corrupt the runtime (it clears noExitRuntime then calls exit()).
++    // With ASYNCIFY these loops exit normally, so just decrement loopLevel.
++#ifndef QT_HAVE_EMSCRIPTEN_ASYNCIFY
+     if (threadData->loopLevel == 1) {
+         emscripten_force_exit(returnCode);
+-    } else {
++    } else
++#endif
++    {
+         d->inExec = false;
+         --threadData->loopLevel;
+     }
+diff --git a/src/corelib/text/qbytearraymatcher.h b/src/corelib/text/qbytearraymatcher.h
+index 0eedfc1d203..ee415e336d7 100644
+--- a/src/corelib/text/qbytearraymatcher.h
++++ b/src/corelib/text/qbytearraymatcher.h
+@@ -41,6 +41,7 @@
+ #define QBYTEARRAYMATCHER_H
+ 
+ #include <QtCore/qbytearray.h>
++#include <limits>
+ 
+ QT_BEGIN_NAMESPACE
+ 
+diff --git a/src/plugins/platforms/wasm/qwasmeventdispatcher.cpp b/src/plugins/platforms/wasm/qwasmeventdispatcher.cpp
+index 2e1b0835573..c1832625c48 100644
+--- a/src/plugins/platforms/wasm/qwasmeventdispatcher.cpp
++++ b/src/plugins/platforms/wasm/qwasmeventdispatcher.cpp
+@@ -100,8 +100,22 @@ bool QWasmEventDispatcher::processEvents(QEventLoop::ProcessEventsFlags flags)
+     // app exit time. However, the browser expects that we return
+     // control to it periodically, also after initial setup in main().
+ 
+-    // EventLoopExec for nested event loops is not supported.
++#ifdef QT_HAVE_EMSCRIPTEN_ASYNCIFY
++    // With ASYNCIFY, emscripten_set_main_loop_arg() returns (instead of
++    // blocking forever), so QEventLoop::exec() will call processEvents()
++    // again. On re-entry (m_hasMainLoop already true), or for nested event
++    // loops (QDrag::exec, QMenu::exec, etc.), yield to the browser via
++    // emscripten_sleep so the outer main-loop callback keeps running, then
++    // process any pending Qt events before returning to the caller.
++    if (m_hasMainLoop) {
++        emscripten_sleep(0);
++        return QUnixEventDispatcherQPA::processEvents(flags & ~QEventLoop::EventLoopExec);
++    }
++#else
++    // Without ASYNCIFY, nested event loops are not supported.
+     Q_ASSERT(!m_hasMainLoop);
++#endif
++
+     m_hasMainLoop = true;
+ 
+     // Call emscripten_set_main_loop_arg() with a callback which processes
