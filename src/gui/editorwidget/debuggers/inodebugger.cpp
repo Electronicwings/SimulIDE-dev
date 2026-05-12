@@ -24,7 +24,13 @@ InoDebugger::InoDebugger( CodeEditor* parent, OutPanelText* outPane )
 {
     m_version = 0;
     m_board = "Uno";
+
+#ifdef __EMSCRIPTEN__
+    // WASM has no host filesystem we can write to outside /tmp.
+    m_buildPath = MainWindow::self()->getConfigPath("");
+#else
     m_buildPath = MainWindow::self()->getConfigPath("codeeditor/buildIno");
+#endif
 
     QMap<QString, QStringList> mb;
     mb.insert("Serial", {

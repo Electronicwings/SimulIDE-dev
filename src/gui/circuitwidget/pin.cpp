@@ -55,7 +55,7 @@ Pin::Pin( int angle, const QPoint pos, QString id, int index, Component* parent,
     m_color[input_high ] = QColor( 250, 120, 0 );
 
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setPixelSize(7);
     font.setStretch( 100 );
     font.setLetterSpacing( QFont::PercentageSpacing, 100 );

@@ -13,7 +13,7 @@
 eLed::eLed( QString id ) 
     : eResistor( id )
 {
-    m_impedance  = 0.6;
+    m_impedance  = 100;
     m_threshold  = 2.4;
     m_maxCurrent = 0.03;
     eLed::initialize();

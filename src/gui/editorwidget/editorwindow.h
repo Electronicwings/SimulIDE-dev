@@ -56,7 +56,7 @@ class EditorWindow : public EditorWidget, public Updatable
         virtual void stop() override;
         virtual void run() override;
         
-    protected slots:
+    // protected slots:
         virtual void debug() override;
         virtual void step() override;
         virtual void stepOver() override;

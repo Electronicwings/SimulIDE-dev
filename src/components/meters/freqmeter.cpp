@@ -45,7 +45,7 @@ FreqMeter::FreqMeter( QString type, QString id )
     m_idLabel->setPos(-12,-24);
     setLabelPos(-32,-24, 0);
 
-    QFont font("Ubuntu Mono", 13, QFont::Bold );
+    QFont font("Roboto", 13, QFont::Bold );
     font.setPixelSize( 13 );
     m_display.setFont( font );
     m_display.setBrush( Qt::yellow );

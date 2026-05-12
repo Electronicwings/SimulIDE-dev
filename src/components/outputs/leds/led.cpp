@@ -34,10 +34,20 @@ Led::Led( QString type, QString id )
 
     m_isLinker = true;
 
+    // Both leads emerge from the flat back of the LED body. Pin's setPos
+    // is the OUTER tip (where wires attach); the visible lead extends
+    // back toward the body for `length` pixels. So with the body's flat
+    // edge at x = -7, we want tip_x + length = -7.
+    //   anode  (pin 0): length 13, tip at -20  → lead from -20 to -7
+    //   cathode (pin 1): length  9, tip at -16  → lead from -16 to -7
+    // Anode tip sits 4 px further out than cathode → anode lead reads
+    // 4 px longer (matches the real-LED "longer-lead anode" convention).
+    // Pin ids stay "lPin"/"rPin" so saved .sim2 files still find them.
     m_pin.resize( 2 );
-    m_pin[0] = new Pin( 180, QPoint(-16, 0 ), m_id+"-lPin", 0, this);
-    m_pin[1] = new Pin(   0, QPoint( 16, 0 ), m_id+"-rPin", 1, this);
-    m_pin[0]->setLength( 10 );
+    m_pin[0] = new Pin( 180, QPoint(-20, -4 ), m_id+"-lPin", 0, this);
+    m_pin[1] = new Pin( 180, QPoint(-16,  4 ), m_id+"-rPin", 1, this);
+    m_pin[0]->setLength( 13 ); // anode (longer in real LEDs)
+    m_pin[1]->setLength(  9 ); // cathode
 
     setEpin( 0, m_pin[0] );
     setEpin( 1, m_pin[1] );
@@ -46,6 +56,9 @@ Led::Led( QString type, QString id )
         new StrProp<Led>("Links", "Links",""
                         , this, &Led::getLinks , &Led::setLinks )
     }, groupHidden} );
+
+    // Keep default in vertical shape
+    rotateCCW();
 }
 Led::~Led(){}
 
@@ -77,17 +90,14 @@ void Led::contextMenuEvent( QGraphicsSceneContextMenuEvent* event )
 
 void Led::drawBackground( QPainter* p )
 {
-    p->drawEllipse(-6,-8, 16, 16 );
+    // Same bullet/stadium silhouette used by SingleGroundedLed and any
+    // other LedBase subclass — see LedBase::ledShape for the shape.
+    p->drawPath( LedBase::ledShape( QRectF(-7, -7, 18, 14) ) );
 }
 
-void Led::drawForeground( QPainter* p )
+void Led::drawForeground( QPainter* /*p*/ )
 {
-    static const QPointF points[3] = {
-        QPointF( 8, 0 ),
-        QPointF(-3,-6 ),
-        QPointF(-3, 6 ) };
-
-    p->drawPolygon( points, 3 );
-    p->drawLine( 8,-4, 8, 4 );
-    p->drawLine(-6, 0, 10, 0 );
+    // Intentionally empty — the bullet body + halo from LedBase is the full
+    // LED appearance. The old diode-arrow schematic overlay was sized for
+    // the legacy circle body and is no longer relevant.
 }

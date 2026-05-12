@@ -24,6 +24,10 @@
 #include "about.h"
 #include "utils.h"
 
+#ifdef __EMSCRIPTEN__
+#include "jsbridge.h"
+#endif
+
 CircuitWidget* CircuitWidget::m_pSelf = 0l;
 
 CircuitWidget::CircuitWidget( QWidget *parent  )
@@ -74,18 +78,18 @@ CircuitWidget::CircuitWidget( QWidget *parent  )
     //m_panelSplitter->addWidget( m_infoWidget );
     m_panelSplitter->addWidget( topWidget );
     m_panelSplitter->addWidget( &m_outPane );
-    m_panelSplitter->setSizes( {170, 500} );
+    m_panelSplitter->setSizes( {250, 500} );
 
     m_mainSplitter->addWidget( &m_circView );
     m_mainSplitter->addWidget( m_panelSplitter );
-    m_mainSplitter->setSizes( {500, 100} );
+    m_mainSplitter->setSizes( {500, 170} );
 
     QFont font( MainWindow::self()->defaultFontName(), 10, QFont::Bold );
     double scale = MainWindow::self()->fontScale();
     font.setPixelSize( 14*scale );
     m_msgLabel = new QLabel( this );
     m_msgLabel->setFont( font );
-    m_msgLabel->setMaximumSize( 200*scale, 20*scale );
+    m_msgLabel->setMaximumSize( 200*scale, 25*scale );
 
     createActions();
     updateRecentFileActions();
@@ -124,6 +128,7 @@ void CircuitWidget::clear()
 
 void CircuitWidget::createActions()
 {
+#ifndef HIDE_SOME_ACTIONS
     for( int i=0; i<MaxRecentFiles; i++ )
     {
         recentFileActs[i] = new QAction( this );
@@ -151,6 +156,7 @@ void CircuitWidget::createActions()
     saveCircAsAct->setStatusTip( tr("Save the Circuit under a new name"));
     connect( saveCircAsAct, &QAction::triggered,
                       this, &CircuitWidget::saveCircAs, Qt::UniqueConnection );
+#endif
 
     zoomFitAct = new QAction( QIcon(":/zoomfit.svg"),tr("Zoom to fit"), this);
     zoomFitAct->setStatusTip( tr("Zoom Circuit to fit all components"));
@@ -178,6 +184,7 @@ void CircuitWidget::createActions()
     connect( pauseSimAct, &QAction::triggered,
              this, &CircuitWidget::pauseCirc, Qt::UniqueConnection );
 
+#ifndef HIDE_SOME_ACTIONS
     settAppAct = new QAction( QIcon(":/config.svg"),tr("Settings"), this);
     settAppAct->setStatusTip(tr("Settings"));
     connect( settAppAct, &QAction::triggered,
@@ -197,17 +204,25 @@ void CircuitWidget::createActions()
     aboutQtAct->setStatusTip(tr("About Qt"));
     connect( aboutQtAct, &QAction::triggered,
                    qApp, &QApplication::aboutQt, Qt::UniqueConnection );
+#endif
 }
 
 void CircuitWidget::createToolBars()
 {
     m_circToolBar.setObjectName( "m_circToolBar" );
 
-    double fs = MainWindow::self()->fontScale()*20;
+    double fs = MainWindow::self()->fontScale()*25;
     m_circToolBar.setIconSize( QSize( fs, fs ) );
 
+    // Declared once here so it can be reused both inside and outside the
+    // HIDE_SOME_ACTIONS guard (later spacers in this function reuse the
+    // same variable name; with the guard active the inner declaration
+    // would be skipped and outer reuses wouldn't compile).
+    QWidget* spacer = nullptr;
+
+#ifndef HIDE_SOME_ACTIONS
     m_circToolBar.addAction( settAppAct );
-    QWidget* spacer = new QWidget();
+    spacer = new QWidget();
     spacer->setFixedWidth( 15 );
     m_circToolBar.addWidget( spacer );
     m_circToolBar.addSeparator();//..........................
@@ -229,24 +244,28 @@ void CircuitWidget::createToolBars()
     spacer->setFixedWidth( 15 );
     m_circToolBar.addWidget( spacer );
     m_circToolBar.addSeparator();//..........................
-
-    m_circToolBar.addAction( zoomFitAct );
-    m_circToolBar.addAction( zoomSelAct );
-    m_circToolBar.addAction( zoomOneAct );
-    spacer = new QWidget();
-    spacer->setFixedWidth( 20 );
-    m_circToolBar.addWidget( spacer );
-    m_circToolBar.addSeparator();//..........................
+#endif
 
     m_circToolBar.addAction( powerCircAct );
     m_circToolBar.addAction( pauseSimAct );
-    m_circToolBar.addSeparator();//..........................
 
     spacer = new QWidget();
     spacer->setFixedWidth( 15 );
     m_circToolBar.addWidget( spacer );
     m_circToolBar.addWidget( m_msgLabel );
 
+    m_circToolBar.addSeparator();//..........................
+
+    m_circToolBar.addAction( zoomFitAct );
+    m_circToolBar.addAction( zoomSelAct );
+    m_circToolBar.addAction( zoomOneAct );
+
+    // spacer = new QWidget();
+    // spacer->setFixedWidth( 20 );
+    // m_circToolBar.addWidget( spacer );
+    // m_circToolBar.addSeparator();//..........................
+
+#ifndef HIDE_SOME_ACTIONS    
     spacer = new QWidget( this );
     spacer->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Preferred );
     spacer->setVisible( true );
@@ -264,6 +283,7 @@ void CircuitWidget::createToolBars()
     m_circToolBar.addWidget( infoButton );
     
     m_circToolBar.addSeparator();//..........................
+#endif
 }
 
 bool CircuitWidget::newCircuit()
@@ -291,6 +311,8 @@ bool CircuitWidget::newCircuit()
 
     MainWindow::self()->setFile( tr("New Circuit"));
     MainWindow::self()->settings()->setValue( "lastCircDir", m_lastCircDir );
+
+    CircuitView::self()->setShowScroll(true);
     
     return true;
 }
@@ -450,6 +472,9 @@ void CircuitWidget::powerCircOn()
     setMsg( " "+tr("Running")+" ", 0 );
 
     Simulator::self()->startSim();
+#ifdef __EMSCRIPTEN__
+    SimulIDEBridge::instance()->emitStateChange( "running" );
+#endif
 }
 
 void CircuitWidget::powerCircOff()
@@ -467,6 +492,9 @@ void CircuitWidget::powerCircOff()
 
     m_infoWidget->setRate( 0, 0 );
     Circuit::self()->update();
+#ifdef __EMSCRIPTEN__
+    SimulIDEBridge::instance()->emitStateChange( "stopped" );
+#endif
 }
 
 void CircuitWidget::powerCircDebug()
@@ -518,6 +546,9 @@ void CircuitWidget::pauseCirc()
         pauseSimAct->setIcon( QIcon(":/simpaused.png") );
         powerCircAct->setIcon( QIcon(":/poweroff.png") );
         powerCircAct->setIconText("Off");
+#ifdef __EMSCRIPTEN__
+        SimulIDEBridge::instance()->emitStateChange( "paused" );
+#endif
     }
     else if( Simulator::self()->isPaused() )
     {
@@ -528,6 +559,9 @@ void CircuitWidget::pauseCirc()
         pauseSimAct->setIcon( QIcon(":/pausesim.png") );
         powerCircAct->setIcon( QIcon(":/poweron.png") );
         powerCircAct->setIconText("On");
+#ifdef __EMSCRIPTEN__
+        SimulIDEBridge::instance()->emitStateChange( "running" );
+#endif
     }
 }
 
@@ -591,6 +625,7 @@ void CircuitWidget::updateRecentFileActions()
 
     int numRecentFiles = qMin( files.size(), (int)MaxRecentFiles );
 
+#ifndef HIDE_SOME_ACTIONS    
     for( int i=0; i<numRecentFiles; i++ )
     {
         QString text = QString::number(i + 1)+"- "+ getFileName( files[i] );
@@ -599,6 +634,7 @@ void CircuitWidget::updateRecentFileActions()
         recentFileActs[i]->setVisible( true );
     }
     for( int i=numRecentFiles; i<MaxRecentFiles; i++ ) recentFileActs[i]->setVisible(false);
+#endif
 }
 
 #include "moc_circuitwidget.cpp"

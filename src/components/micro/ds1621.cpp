@@ -88,7 +88,7 @@ DS1621::DS1621( QString type, QString id )
     QObject::connect( u_button, &UpDoButton::pressed, [=](){ upbuttonclicked(); } );
     QObject::connect( d_button, &UpDoButton::pressed, [=](){ downbuttonclicked(); } );
 
-    m_font.setFamily("Ubuntu Mono");
+    m_font.setFamily("Roboto");
 #ifdef _WIN32
     m_font.setStretch( 99 );
 #else

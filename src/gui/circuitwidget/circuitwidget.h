@@ -48,6 +48,7 @@ class CircuitWidget : public QWidget
 
         QSplitter* splitter() { return m_mainSplitter; }
         QSplitter* panelSplitter() { return m_panelSplitter; }
+        QToolBar*  circToolBar() { return &m_circToolBar; }
         
     public slots:
         bool newCircuit();

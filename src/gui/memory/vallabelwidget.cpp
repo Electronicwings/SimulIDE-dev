@@ -21,7 +21,7 @@ ValLabelWidget::ValLabelWidget( QString name, QString type, QString unit, Watche
     if( unit.isEmpty() ) unit = m_type;
 
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setBold( true );
     font.setPixelSize( 9 );
 

@@ -1,0 +1,11 @@
+<!DOCTYPE SimulIDE>
+
+<!--
+    Generic compiler entry: no local toolchain, no build steps.
+    Used for non-Arduino MCU drops (.cpp files). The actual compilation
+    happens server-side via Compiler::remoteCompile, which forwards
+    X-Mcu-Name / X-Board-Name / X-Family / X-Extra-Args so the server
+    can pick the right toolchain.
+-->
+<compiler name="Generic" type="generic">
+</compiler>

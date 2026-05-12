@@ -7,7 +7,14 @@
         <file alias="UbuntuMono-BI.ttf">../resources/fonts/UbuntuMono-BI.ttf</file>
         <file alias="UbuntuMono-R.ttf">../resources/fonts/UbuntuMono-R.ttf</file>
         <file alias="UbuntuMono-RI.ttf">../resources/fonts/UbuntuMono-RI.ttf</file>
-        
+
+        <file alias="Roboto-Regular.ttf">../resources/fonts/Roboto-Regular.ttf</file>
+        <file alias="Roboto-Bold.ttf">../resources/fonts/Roboto-Bold.ttf</file>
+        <file alias="Roboto-Italic.ttf">../resources/fonts/Roboto-Italic.ttf</file>
+        <file alias="Roboto-BoldItalic.ttf">../resources/fonts/Roboto-BoldItalic.ttf</file>
+
+        <file alias="themes/light.qss">../resources/themes/light.qss</file>
+
         <file alias="simulide_cz.qm">../resources/qm/simulide_cz.qm</file>
         <file alias="simulide_de.qm">../resources/qm/simulide_de.qm</file>
         <file alias="simulide_en.qm">../resources/qm/simulide_en.qm</file>
@@ -26,6 +33,7 @@
 
         <file alias="angelscript.xml">../resources/data/codeeditor/compilers/compilers/angelscript.xml</file>
         <file alias="arduino.xml">../resources/data/codeeditor/compilers/compilers/arduino.xml</file>
+        <file alias="generic.xml">../resources/data/codeeditor/compilers/compilers/generic.xml</file>
 
         <file alias="codeeditor/syntax/6502asm.syntax">../resources/data/codeeditor/syntax/6502asm.syntax</file>
         <file alias="codeeditor/syntax/avrasm.syntax">../resources/data/codeeditor/syntax/avrasm.syntax</file>

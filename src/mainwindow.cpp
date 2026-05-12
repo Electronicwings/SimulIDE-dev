@@ -13,6 +13,7 @@
 #include <QSplitter>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QToolBar>
 #include <QTextStream>
 #include <QDebug>
 #include <QStyleFactory>
@@ -43,7 +44,12 @@ MainWindow::MainWindow()
 
     this->setWindowTitle( m_version );
 
+#ifdef __EMSCRIPTEN__
+    // WASM has no host filesystem we can write to outside /tmp.
+    m_configDir.setPath( QStandardPaths::writableLocation( QStandardPaths::TempLocation ) );
+#else
     m_configDir.setPath( QStandardPaths::writableLocation( QStandardPaths::AppDataLocation ) );
+#endif
 
     m_settings     = new QSettings( getConfigPath("simulide.ini"), QSettings::IniFormat, this );
     m_compSettings = new QSettings( getConfigPath("compList.ini"), QSettings::IniFormat, this );
@@ -62,6 +68,10 @@ MainWindow::MainWindow()
     QFontDatabase::addApplicationFont(":/UbuntuMono-BI.ttf" );
     QFontDatabase::addApplicationFont(":/UbuntuMono-R.ttf" );
     QFontDatabase::addApplicationFont(":/UbuntuMono-RI.ttf" );
+    QFontDatabase::addApplicationFont(":/Roboto-Regular.ttf" );
+    QFontDatabase::addApplicationFont(":/Roboto-Bold.ttf" );
+    QFontDatabase::addApplicationFont(":/Roboto-Italic.ttf" );
+    QFontDatabase::addApplicationFont(":/Roboto-BoldItalic.ttf" );
 
     float scale = 1.0;
     if( m_settings->contains( "fontScale" ) )
@@ -74,7 +84,7 @@ MainWindow::MainWindow()
     }
     setFontScale( scale );
 
-    QString fontName = "Ubuntu";
+    QString fontName = "Roboto";
     if( m_settings->contains("fontName") ) fontName = m_settings->value("fontName").toString();
     setDefaultFontName( fontName );
 
@@ -86,14 +96,32 @@ MainWindow::MainWindow()
 
     QApplication::setStyle( QStyleFactory::create("Fusion") ); //applyStyle();
 
+    // Load centralized UI theme stylesheet. Default is the bright modern light theme.
+    // Switch by setting "theme" in simulide.ini (e.g. theme=dark) once more themes ship.
+    QString themeName = m_settings->value( "theme", "light" ).toString();
+    QFile themeFile( ":/themes/" + themeName + ".qss" );
+    if( themeFile.open( QFile::ReadOnly | QFile::Text ) ){
+        qApp->setStyleSheet( QString::fromUtf8( themeFile.readAll() ) );
+        themeFile.close();
+    }
+
+    // qApp->setStyleSheet(
+    //     "QMainWindow, EditorWidget, CircuitWidget, QSplitter { background: white; }"
+    //     "QToolBar { background: white; border: 0; }"
+    //     "QSplitter::handle { background: white; }"
+    //     "QToolButton { background: transparent; }"
+    // );
+
     createWidgets();
     m_circuitW->newCircuit();
     readSettings();
 
+#ifndef HIDE_SOME_ACTIONS
     if( m_autoUpdt ){
         QTimer::singleShot( 5000, CircuitWidget::self()
                            , [=]()->void{ m_installer->checkForUpdates(); } );
     }
+#endif
 
     QString backPath = getConfigPath( "backup.sim2" );
     if( QFile::exists( backPath ) )
@@ -137,6 +165,16 @@ void MainWindow::closeEvent( QCloseEvent *event )
 
     writeSettings();
     event->accept();
+}
+
+bool MainWindow::eventFilter( QObject* obj, QEvent* event )
+{
+    if( obj == m_searchComponent ){
+        const QEvent::Type t = event->type();
+        if( t == QEvent::FocusIn || t == QEvent::MouseButtonPress )
+            searchChanged();
+    }
+    return QMainWindow::eventFilter( obj, event );
 }
 
 void MainWindow::readSettings()
@@ -248,68 +286,144 @@ void MainWindow::createWidgets()
     m_mainSplitter = new QSplitter( this );
     m_mainSplitter->setOrientation( Qt::Horizontal );
 
-    m_sidepanel = new QTabWidget( this );
-    m_sidepanel->setTabPosition( QTabWidget::North );
-    m_sidepanel->setIconSize( QSize( 20*m_fontScale, 20*m_fontScale ) );
-    //QString fontSize = QString::number( int(11*m_fontScale) );
-    //m_sidepanel->tabBar()->setStyleSheet("QTabBar { font-size:"+fontSize+"px; }");
-    m_mainSplitter->addWidget( m_sidepanel );
+    // m_sidepanel = new QTabWidget( this );
+    // m_sidepanel->setTabPosition( QTabWidget::North );
+    // m_sidepanel->setIconSize( QSize( 20*m_fontScale, 20*m_fontScale ) );
+    // //QString fontSize = QString::number( int(11*m_fontScale) );
+    // //m_sidepanel->tabBar()->setStyleSheet("QTabBar { font-size:"+fontSize+"px; }");
+    // m_mainSplitter->addWidget( m_sidepanel );
 
-    m_listWidget = new QWidget( this );
-    QVBoxLayout* listLayout = new QVBoxLayout( m_listWidget );
-    listLayout->setSpacing( 6 );
-    listLayout->setContentsMargins(0, 2, 0, 0);
+    m_listWidget = new QWidget(centralWidget);
+    QVBoxLayout* listLayout = new QVBoxLayout();
+    // listLayout->setSpacing( 6 );
+    // listLayout->setContentsMargins(0, 2, 0, 0);
 
-    QHBoxLayout* searchLayout = new QHBoxLayout( this );
+    QHBoxLayout* searchLayout = new QHBoxLayout();
     searchLayout->setSpacing(1);
 
     m_searchComponent = new QLineEdit( this );
+    // Click-only focus so Qt doesn't auto-focus this widget on window show.
+    // Initial auto-focus would fire FocusIn → searchChanged() → show the
+    // list before layout is finalized, so it would appear at top-left.
+    m_searchComponent->setFocusPolicy( Qt::ClickFocus );
     QFont font = m_searchComponent->font();
-    font.setPixelSize( 12*m_fontScale );
+    font.setPixelSize( 14*m_fontScale );
     m_searchComponent->setFont( font );
-    m_searchComponent->setFixedHeight( 24*m_fontScale );
+    m_searchComponent->setFixedHeight( 26*m_fontScale );
     m_searchComponent->setPlaceholderText( " "+tr("Search Components"));
-    searchLayout->addWidget( m_searchComponent );
-    connect( m_searchComponent, SIGNAL( editingFinished() ),
-             this,              SLOT(   searchChanged() ) );
+    m_searchComponent->setMinimumWidth(250);
+    m_searchComponent->setMaximumWidth(350);
+    m_searchComponent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
-    m_clearButton = new QPushButton( this );
-    m_clearButton->setFixedSize( 24*m_fontScale, 24*m_fontScale );
-    m_clearButton->setIcon( QIcon(":/remove.svg") );
-    m_clearButton->setToolTip( tr("Clear search"));
+    connect(m_searchComponent, &QLineEdit::textChanged,
+        this, &MainWindow::searchChanged);
 
-    searchLayout->addWidget( m_clearButton );
-    connect( m_clearButton, SIGNAL( clicked() ),
-             this,          SLOT(   clearSearch()) );
+    // connect( m_searchComponent, SIGNAL( editingFinished() ),
+    //          this,              SLOT(   searchChanged() ) );
 
-    listLayout->addLayout( searchLayout );
+    // Show the list when the search bar is focused or clicked. QLineEdit has
+    // no focus signal, and a click when the bar already has focus won't fire
+    // FocusIn — so we cover both via an event filter. (We deliberately don't
+    // hook editingFinished: it fires on focus loss, which would re-show the
+    // list immediately after the outside-click hide and cause a flicker loop.)
+    m_searchComponent->installEventFilter( this );
 
+    // m_clearButton = new QPushButton( this );
+    // m_clearButton->setFixedSize( 26*m_fontScale, 26*m_fontScale );
+    // m_clearButton->setIcon( QIcon(":/reload.svg") );
+    // m_clearButton->setToolTip( tr("Clear and reload component list"));
+
+    // connect( m_clearButton, SIGNAL( clicked() ),
+    //          this,          SLOT(   clearSearch()) );
+
+    // QHBoxLayout *searchBarLayout = new QHBoxLayout();
+    // Inner layout: search bar + clear button side by side. Wrapped in a
+    // QWidget so it can be inserted into the CircuitWidget's QToolBar
+    // (QToolBar accepts widgets, not bare layouts).
+    m_searchBarContainer = new QWidget( this );
+    QHBoxLayout *searchBarLayout = new QHBoxLayout( m_searchBarContainer );
+    searchBarLayout->setSpacing(1);
+    searchBarLayout->setContentsMargins(0, 0, 0, 0);
+    searchBarLayout->addWidget(m_searchComponent);
+    // searchBarLayout->addWidget(m_clearButton);
+
+    // Old placement above the central area (kept for reference). The
+    // search bar now lives at the start of the CircuitWidget toolbar; see
+    // the m_circuitW->circToolBar()->insertWidget(...) call below.
+    // searchLayout->addStretch( 1 );
+    // searchLayout->addLayout( searchBarLayout );
+    // searchLayout->addStretch( 3 );
+    // listLayout->addLayout( searchLayout );
+    Q_UNUSED( searchLayout );
+
+#ifndef HIDE_SOME_ACTIONS
     m_installer = new Installer( this );
     m_fileTree  = new FileWidget( this );
+#else
+    // Construct without a parent so they don't appear as floating
+    // top-level windows. The singletons (Installer::self() and
+    // FileWidget::self()) stay valid for the few callers that reach in
+    // (e.g. filebrowser.cpp uses FileWidget::self()->setPath()).
+    m_installer = new Installer( nullptr );
+    m_fileTree  = new FileWidget( nullptr );
+#endif
     m_circuitW  = new CircuitWidget( this );
 
-    m_components = new ComponentList( m_sidepanel );
-    listLayout->addWidget( m_components );
+    // Inject the search bar at the start of the CircuitWidget's toolbar
+    // so it sits as the first item there. insertWidget(before, w) places
+    // it before the given action; passing the toolbar's first action
+    // (or nullptr if empty) makes it the leftmost item.
+    {
+        QToolBar* tb = m_circuitW->circToolBar();
+        QAction* firstAct = tb->actions().isEmpty() ? nullptr : tb->actions().first();
+        tb->insertWidget( firstAct, m_searchBarContainer );
+        tb->insertSeparator( firstAct );
+    }
 
-    m_sidepanel->addTab( m_listWidget, QIcon(":/ic2.png")    , "" );
+    // Top-level popup approach (kept for reference). In WASM, repeated
+    // show/hide cycles on a Qt::Tool top-level desync the canvas/surface
+    // from Qt's isVisible state, so show() silently no-ops after a few
+    // cycles. Switching to a child widget avoids that.
+    // m_components = new ComponentList(nullptr);
+    // m_components->setWindowFlags(Qt::Tool | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
+    // m_components->setAttribute(Qt::WA_ShowWithoutActivating);
+    // listLayout->addWidget( m_components );
+
+    m_components = new ComponentList( this );
+    m_components->hide();
+
+    m_listWidget->setLayout(listLayout);
+
+    // m_sidepanel->addTab( m_listWidget, QIcon(":/ic2.png")    , "" );
+#ifndef HIDE_SOME_ACTIONS
     m_sidepanel->addTab( m_installer , QIcon(":/complib.svg"), "" );
     m_sidepanel->addTab( m_fileTree  , QIcon(":/files.svg")  , "" );
+#endif
 
-    m_sidepanel->setTabToolTip( 0, tr("Components") );
+    // m_sidepanel->setTabToolTip( 0, tr("Components") );
+#ifndef HIDE_SOME_ACTIONS
     m_sidepanel->setTabToolTip( 1, tr("Libraries") );
     m_sidepanel->setTabToolTip( 2, tr("Files") );
-
-    m_mainSplitter->addWidget( m_circuitW );
+#endif
 
     m_editor = new EditorWindow( this );
+
     m_mainSplitter->addWidget( m_editor );
+    m_mainSplitter->addWidget( m_circuitW );
 
-    baseWidgetLayout->addWidget( m_mainSplitter, 0, 0 );
+    // Add listWidget to the base layout above the splitter
+    // baseWidgetLayout->addWidget( m_listWidget, 0, 0, Qt::AlignTop );
+    baseWidgetLayout->addWidget( m_mainSplitter, 1, 0 );
 
-    m_mainSplitter->setSizes( {150, 350, 500} );
+    m_mainSplitter->setSizes( {400, 600} );
+
+    m_editor->hide();   // hidden until MCU is placed
 
     this->showMaximized();
 }
+
+void MainWindow::showEditor() { if( m_editor && !m_editor->isVisible() ) m_editor->show(); }
+void MainWindow::hideEditor() { if( m_editor &&  m_editor->isVisible() ) m_editor->hide(); }
 
 void MainWindow::clearSearch()
 {
@@ -319,8 +433,26 @@ void MainWindow::clearSearch()
 
 void MainWindow::searchChanged()
 {
+    // Top-level popup positioning (kept for reference) — see createWidgets.
+    // QPoint pos = m_searchComponent->mapToGlobal(QPoint(0, m_searchComponent->height()));
+    // m_components->setGeometry(QRect(pos, QSize(m_searchComponent->width(), 700)));
+
+    // Position relative to MainWindow (the new parent). Dynamic height:
+    // from just below the search bar down to a small margin above the
+    // MainWindow's bottom so the list grows with the window.
+    const int bottomMargin = 20*m_fontScale;
+    QPoint topLeft = m_searchComponent->mapTo( this,
+                                               QPoint(0, m_searchComponent->height()) );
+    int height = this->height() - topLeft.y() - bottomMargin;
+    if( height < 100 ) height = 100;
+    m_components->setGeometry( QRect( topLeft,
+                                      QSize( m_searchComponent->width(), height ) ) );
+    m_components->raise();
+
     QString filter = m_searchComponent->text();
     m_components->search( filter );
+
+    m_components->show();
 }
 
 QString MainWindow::getHelp( QString name, bool save )

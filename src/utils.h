@@ -14,6 +14,7 @@ class QString;
 class QPointF;
 class QPoint;
 class Pin;
+class QTableWidget;
 
 #define unitToVal( val, mult ) \
     if     ( mult == " n" ) val *= 1e3; \
@@ -86,6 +87,18 @@ QPointF toCompGrid( QPointF point );
 
 bool lessPinX( Pin* pinA, Pin* pinB );
 bool lessPinY( Pin* pinA, Pin* pinB );
+
+// Expand each column of a QTableWidget so its header label fits without
+// truncation. Only widens — columns already wider than the header text
+// keep their existing width. Cheap (O(columns)); does not scan cells, so
+// safe to use on large memory tables.
+void fitColumnsToHeaders( QTableWidget* table, int extraPadding = 22 );
+
+// Set the QTableWidget's vertical-header width to fit the widest row-
+// header label. For row-titled tables (e.g. STATUS / PC display widgets)
+// where the row label is the table's identity. O(rows); only call once
+// during setup, not per redraw.
+void fitVerticalHeaderWidth( QTableWidget* table, int extraPadding = 14 );
 
 //QPointF getPointF( QString p );
 //QString getStrPointF( QPointF p );

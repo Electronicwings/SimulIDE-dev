@@ -54,7 +54,7 @@ Chip::Chip( QString type, QString id, QString device )
     m_color    = m_lsColor;
 
     QFont f;
-    f.setFamily("Ubuntu Mono");
+    f.setFamily("Roboto");
     f.setWeight( QFont::Medium );
 #ifdef Q_OS_UNIX
     f.setLetterSpacing( QFont::PercentageSpacing, 120 );

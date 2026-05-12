@@ -88,7 +88,7 @@ Ds18b20::Ds18b20( QString type, QString id )
     QObject::connect( u_button, &UpDoButton::pressed, [=](){ upbuttonclicked(); } );
     QObject::connect( d_button, &UpDoButton::pressed, [=](){ downbuttonclicked(); } );
 
-    m_font.setFamily("Ubuntu Mono");
+    m_font.setFamily("Roboto");
     m_font.setPixelSize( 9 );
     m_font.setBold( true );
     m_font.setLetterSpacing( QFont::PercentageSpacing, 100 );

@@ -13,6 +13,10 @@
 #include <QTextStream>
 #include <qpoint.h>
 #include <QPointF>
+#include <QFontMetrics>
+#include <QHeaderView>
+#include <QTableWidget>
+#include <QTableWidgetItem>
 #include <cmath>
 
 #include "mainwindow.h"
@@ -270,6 +274,42 @@ bool lessPinX( Pin* pinA, Pin* pinB )
 bool lessPinY( Pin* pinA, Pin* pinB )
 {
     return pinA->y() < pinB->y();
+}
+
+void fitColumnsToHeaders( QTableWidget* table, int extraPadding )
+{
+    if( !table ) return;
+    QHeaderView* header = table->horizontalHeader();
+    if( !header ) return;
+
+    QFontMetrics fm( header->font() );
+    for( int col=0; col < table->columnCount(); ++col ){
+        if( table->isColumnHidden( col ) ) continue;
+        QTableWidgetItem* item = table->horizontalHeaderItem( col );
+        if( !item ) continue;
+        const int needed = fm.horizontalAdvance( item->text() ) + extraPadding;
+        if( table->columnWidth( col ) < needed ) table->setColumnWidth( col, needed );
+    }
+}
+
+void fitVerticalHeaderWidth( QTableWidget* table, int extraPadding )
+{
+    if( !table ) return;
+    QHeaderView* header = table->verticalHeader();
+    if( !header ) return;
+
+    QFontMetrics fm( header->font() );
+    int maxW = 0;
+    for( int row=0; row < table->rowCount(); ++row ){
+        QTableWidgetItem* item = table->verticalHeaderItem( row );
+        if( !item ) continue;
+        const int w = fm.horizontalAdvance( item->text() );
+        if( w > maxW ) maxW = w;
+    }
+    const int needed = maxW + extraPadding;
+    // Only widen — preserves any explicit setFixedWidth call the caller
+    // already made as a baseline minimum.
+    if( needed > header->width() ) header->setFixedWidth( needed );
 }
 
 /*QPointF getPointF( QString p )

@@ -72,6 +72,7 @@
 #include "ledbar.h"
 #include "ledmatrix.h"
 #include "ledrgb.h"
+#include "singlegroundedled.h"
 #include "line.h"
 #include "lm555.h"
 #include "logicanalizer.h"
@@ -221,6 +222,7 @@ void ItemLibrary::loadItems()
     addItem( new LibraryItem( QObject::tr("Outputs"), "", "","Outputs", nullptr ) );
     addItem( new LibraryItem( QObject::tr("Leds"), "Outputs", "leds.png","Leds", nullptr ) );
     addItem( Led::libraryItem() );
+    addItem( SingleGroundedLed::libraryItem() );
     addItem( LedRgb::libraryItem() );
     addItem( LedBar::libraryItem() );
     addItem( SevenSegment::libraryItem() );
@@ -258,9 +260,9 @@ void ItemLibrary::loadItems()
     addItem( new LibraryItem("I51"    , "Micro", "ic2.png", "I51"  , nullptr) );
     addItem( new LibraryItem("MCS65"  , "Micro", "ic2.png", "MCS65", nullptr) );
     addItem( new LibraryItem("Z80"    , "Micro", "ic2.png", "Z80"  , nullptr) );
-    addItem( new LibraryItem("STM32"  , "Micro", "ic2.png", "STM32", nullptr) );
-    addItem( new LibraryItem("Espressif", "Micro", "ic2.png", "Espressif", nullptr) );
-    addItem( new LibraryItem("Shields", "Micro", "ic2.png", "Shields"  , nullptr) );
+    // addItem( new LibraryItem("STM32"  , "Micro", "ic2.png", "STM32", nullptr) );
+    // addItem( new LibraryItem("Espressif", "Micro", "ic2.png", "Espressif", nullptr) );
+    // addItem( new LibraryItem("Shields", "Micro", "ic2.png", "Shields"  , nullptr) );
 
     addItem( new LibraryItem( QObject::tr("Sensors"), "Micro", "1to2.png","Sensors", nullptr ) );
     addItem( Mcu::libraryItem() );
@@ -321,21 +323,21 @@ void ItemLibrary::loadItems()
     addItem( Lm555::libraryItem() );
     // Subcircuits
     addItem( SubCircuit::libraryItem() );
-    // Connectors
-    addItem( new LibraryItem( QObject::tr("Connectors"), "", "","Connectors", nullptr ) );
+    // Connectors — these are referenced by built-in board subcircuits
+    // addItem( new LibraryItem( QObject::tr("Connectors"), "", "","Connectors", nullptr ) );
     addItem( Bus::libraryItem() );
     addItem( Tunnel::libraryItem() );
     addItem( Socket::libraryItem() );
     addItem( Header::libraryItem() );
     // Graphical
-    addItem( new LibraryItem( QObject::tr("Graphical"), "", "","Graphical", nullptr ) );
+    // addItem( new LibraryItem( QObject::tr("Graphical"), "", "","Graphical", nullptr ) );
     addItem( Image::libraryItem() );
     addItem( TextComponent::libraryItem() );
     addItem( Rectangle::libraryItem() );
     addItem( Ellipse::libraryItem() );
     addItem( Line::libraryItem() );
     // Other
-    addItem( new LibraryItem( QObject::tr("Other"), "", "","Other", nullptr ) );
+    // addItem( new LibraryItem( QObject::tr("Other"), "", "","Other", nullptr ) );
     addItem( SubPackage::libraryItem() );
     addItem( TestUnit::libraryItem() );
     addItem( Dial::libraryItem() );

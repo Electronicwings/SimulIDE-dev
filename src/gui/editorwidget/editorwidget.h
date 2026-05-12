@@ -66,6 +66,7 @@ class EditorWidget : public QWidget, public CompBase
 
     public slots:
        void loadFile( QString filePath );
+       void closeFileTab( const QString& filePath );
        bool save();
        virtual void pause(){;}
        virtual void stop(){;}

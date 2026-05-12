@@ -39,8 +39,8 @@ void CustomButton::paintEvent( QPaintEvent* )
     QLinearGradient linearGrad( QPointF(w/2, 0), QPointF(w/2, h) );
 
     if( this->isDown() || isChecked() ){
-        linearGrad.setColorAt( 0, QColor( 230, 230, 230 ) );
-        linearGrad.setColorAt( 1, QColor( 180, 180, 180 ) );
+        linearGrad.setColorAt( 0, QColor( 200, 200, 200 ) );
+        linearGrad.setColorAt( 1, QColor( 150, 150, 150 ) );
         rect = QRectF( 1.3, 1.3, w-2, h );
     }else{
         linearGrad.setColorAt(0, Qt::white);

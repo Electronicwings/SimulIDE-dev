@@ -21,6 +21,9 @@ class Meter : public Component, public eResistor
         bool swithchPins() { return m_switchPins; }
         void setSwitchPins( bool s );
 
+        double  getReading() { return m_dispValue; }
+        QString getUnit()    { return m_unit; }
+
         void initialize() override { m_crashed = false;}
         void updateStep() override;
 

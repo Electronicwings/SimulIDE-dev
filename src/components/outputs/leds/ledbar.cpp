@@ -42,7 +42,7 @@ LedBar::LedBar( QString type, QString id )
 
     m_size = 0;
     setSize( 8 );
-    setResistance( 0.6 );
+    // setResistance( 0.6 );
     setLabelPos(-16,-44, 0);
     setValLabelPos(-16,-44-12, 0);
 
@@ -90,7 +90,7 @@ void LedBar::createLeds( int c )
         Pin* pin1 = new Pin( 0, QPoint( 16,-32+8+i*8 ), ledid+"-pinN", 0, this );
         m_pin[index+1] = pin1;
 
-        m_led[i] = new LedSmd( "LEDSMD", ledid, QRectF( 0, 0, 4, 4), pin0, pin1 );
+        m_led[i] = new LedSmd( "LEDSMD", ledid, QRectF( 0, 0, 8, 8), pin0, pin1 );
         m_led[i]->setParentItem(this);
         m_led[i]->setPos( 0,-28+2+i*8 );
         m_led[i]->setFlag( QGraphicsItem::ItemIsSelectable, false );

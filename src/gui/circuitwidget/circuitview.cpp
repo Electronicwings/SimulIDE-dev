@@ -9,6 +9,8 @@
 #include <QMimeData>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFile>
+#include <QStandardPaths>
 #include <QBuffer>
 #include <QSettings>
 #include <QGuiApplication>
@@ -25,6 +27,11 @@
 #include "utils.h"
 #include "e-diode.h"
 #include "linker.h"
+#include "mcu.h"
+#include "mcutemplates.h"
+#include "editorwindow.h"
+#include "codeeditor.h"
+#include "basedebugger.h"
 
 #define tr(str) QCoreApplication::translate("CircuitView",str)
 
@@ -68,7 +75,18 @@ void CircuitView::clear()
     m_circuit = new Circuit( 3200, 2400, this );
     setScene( m_circuit );
     resetTransform();
-    m_scale = 1;
+
+    // Default zoom > 1 so every component reads clearly without the user
+    // having to scroll-zoom each session. Tweakable via the Circuit/zoom
+    // setting; falls back to 1.25 (≈ +25%). Component geometry, pin
+    // positions, and snap-to-grid are unchanged — this is purely a view
+    // transform.
+    qreal defaultZoom = MainWindow::self()->settings()
+        ->value( "Circuit/zoom", 1.50 ).toDouble();
+    if( defaultZoom <= 0 ) defaultZoom = 1.0;
+    scale( defaultZoom, defaultZoom );
+    m_scale = defaultZoom;
+
     m_enterItem = nullptr;
     centerOn( 0, 0 );
 }
@@ -143,6 +161,60 @@ void CircuitView::dragLeaveEvent( QDragLeaveEvent* event )
     m_circuit->removeComp( m_enterItem );
     Circuit::self()->removeLastUndo();
     m_enterItem = nullptr;
+}
+
+void CircuitView::dropEvent( QDropEvent* event )
+{
+    QGraphicsView::dropEvent( event );
+    if( !m_enterItem ) return;
+
+    QString boardName;
+    Mcu* mcu = Circuit::mcuFromComp( m_enterItem, &boardName );
+    if( mcu ) openEditorForMcu( mcu, boardName );
+}
+
+void CircuitView::openEditorForMcu( Mcu* mcu, const QString& boardName ) // static
+{
+    EditorWindow* ew = EditorWindow::self();
+    if( !ew ) return;
+
+    // SubCircuit drops (boardName non-empty) are Arduino-style boards in
+    // the current catalog → use .ino + Arduino blink template so the
+    // Arduino compiler attaches via the existing extension auto-detect.
+    // Raw MCUs fall back to the Mcu virtuals (.cpp + generic main).
+    const bool    asArduino = !boardName.isEmpty();
+    const QString tpl       = asArduino ? QString::fromUtf8( McuTemplates::arduinoBlink )
+                                        : mcu->templateContent();
+    const QString path      = Circuit::mcuSourcePath( mcu, boardName );
+
+    QFileInfo fi( path );
+    if( !fi.exists() ){
+        QFile f( path );
+        if( f.open( QIODevice::WriteOnly | QIODevice::Text ) ){
+            f.write( tpl.toUtf8() );
+            f.close();
+        }
+    }
+
+    ew->loadFile( path );
+
+    MainWindow::self()->showEditor();
+
+    CodeEditor* ce = ew->getCodeEditor();
+    if( !ce ) return;
+
+    // CodeEditor::setFile attaches a "None" debugger for .cpp (not nullptr),
+    // so a "missing compiler" check would skip the swap. Force the right
+    // compiler unconditionally — setCompName is a no-op when the same
+    // compiler is already attached.
+    const QString compilerName = asArduino ? QStringLiteral("Arduino")
+                                           : QStringLiteral("Generic");
+    ce->setCompName( compilerName );
+
+    if( BaseDebugger* dbg = ce->getCompiler() ){
+        dbg->setDevice(    mcu->device() );
+        dbg->setBoardName( boardName );
+    }
 }
 
 void CircuitView::mousePressEvent( QMouseEvent* event )

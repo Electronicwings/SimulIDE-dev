@@ -26,6 +26,8 @@ class FreqMeter : public Component, public eElement
 
         double filter() { return m_filter; }
         void setFilter( double f ) { m_filter = f; }
+
+        double getFrequency() { return m_freq; }
         
         void paint( QPainter* p, const QStyleOptionGraphicsItem* o, QWidget* w ) override;
         

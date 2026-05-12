@@ -32,19 +32,19 @@ RamTable::RamTable( QWidget* parent, eMcu* processor ,bool cpuMonitor )
     m_loadingVars = false;
 
     float scale = MainWindow::self()->fontScale();
-    int row_heigh = round( 22*scale );
+    int row_heigh = round( 28*scale );
     //int font_size = round(14*scale);
     int numberColor = 0x202090;
 
     QTableWidgetItem* it;
     QFont fontS;
-    fontS.setFamily("Ubuntu Mono");
+    fontS.setFamily("Roboto");
     fontS.setBold( true );
     //fontS.setPointSize( 13 );
     fontS.setPixelSize( round(12.5*scale) );
 
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setBold( true );
     //font.setPointSize( 14 );
     font.setPixelSize( round(12.5*scale) );
@@ -89,6 +89,11 @@ RamTable::RamTable( QWidget* parent, eMcu* processor ,bool cpuMonitor )
         table->verticalHeader()->setVisible( false );
         table->setColumnHidden( 0, true );
     }
+    // Expand any column whose configured width is narrower than its header
+    // text — the localised "Address"/"Name"/"Value"/"Type" labels (or wider
+    // translations) were getting clipped at the default widths above.
+    fitColumnsToHeaders( table );
+    table->setMinimumSize( 400, 300 );
     setContextMenuPolicy( Qt::CustomContextMenu );
 
     m_registerModel = new QStandardItemModel( this );

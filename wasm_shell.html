@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, user-scalable=0"/>
+
+    <title>@APPNAME@</title>
+    <style>
+      /* Make the html body cover the entire viewport with no scroll bars. */
+      html, body { padding: 0; margin: 0; overflow: hidden; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+      
+      /* The canvas must not have any border or padding, or mouse coords will be wrong */
+      canvas { border: 0px none; background-color: white; height: 100%; width: 100%; }
+      canvas { outline: 0px solid transparent; caret-color: transparent; cursor: default }
+      
+      /* Loading screen styling */
+      #qtspinner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        z-index: 1000;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      #qtspinner center {
+        text-align: center;
+        color: white;
+        margin-top: 0;
+        line-height: 1.5;
+      }
+
+      /* Animated spinner */
+      .spinner {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 30px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top: 4px solid white;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .loader-text {
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        letter-spacing: 1px;
+        margin-top: 20px;
+      }
+
+      #qtstatus {
+        font-size: 14px;
+        opacity: 0.9;
+        margin-top: 15px;
+        min-height: 20px;
+      }
+
+      noscript {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        right: 20px;
+        background: #ff6b6b;
+        color: white;
+        padding: 15px;
+        border-radius: 4px;
+        text-align: center;
+        z-index: 2000;
+      }
+    </style>
+  </head>
+  <body onload="init()">
+    <figure style="overflow:visible;" id="qtspinner">
+      <center>
+        <div class="spinner"></div>
+        <div class="loader-text">Preparing Workspace</div>
+        <div id="qtstatus">Loading...</div>
+        <noscript>JavaScript is disabled. Please enable JavaScript to use this application.</noscript>
+      </center>
+    </figure>
+    <canvas id="qtcanvas" oncontextmenu="event.preventDefault()" contenteditable="true"></canvas>
+
+    <script type='text/javascript'>
+        function init() {
+          var spinner = document.querySelector('#qtspinner');
+          var canvas = document.querySelector('#qtcanvas');
+          var status = document.querySelector('#qtstatus')
+
+          var qtLoader = QtLoader({
+              canvasElements : [canvas],
+              showLoader: function(loaderStatus) {
+                  spinner.style.display = 'flex';
+                  canvas.style.display = 'none';
+                  status.innerHTML = loaderStatus + "...";
+              },
+              showError: function(errorText) {
+                  status.innerHTML = errorText;
+                  spinner.style.display = 'flex';
+                  canvas.style.display = 'none';
+              },
+              showExit: function() {
+                  status.innerHTML = "Application exit";
+                  if (qtLoader.exitCode !== undefined)
+                      status.innerHTML += " with code " + qtLoader.exitCode;
+                  if (qtLoader.exitText !== undefined)
+                      status.innerHTML += " (" + qtLoader.exitText + ")";
+                  spinner.style.display = 'flex';
+                  canvas.style.display = 'none';
+              },
+              showCanvas: function() {
+                  spinner.style.display = 'none';
+                  canvas.style.display = 'block';
+              },
+          });
+          qtLoader.loadEmscriptenModule("@APPNAME@");
+      }
+    </script>
+    <script type="text/javascript" src="@QTLOADER@"></script>
+  </body>
+</html>

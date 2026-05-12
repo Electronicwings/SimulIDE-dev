@@ -26,6 +26,8 @@ class Probe : public Component, public eElement
 
         void setVolt( double volt );
 
+        double getVoltage() { return m_voltIn; }
+
         void setSmall( bool s );
         bool isSmall() { return m_small; }
 

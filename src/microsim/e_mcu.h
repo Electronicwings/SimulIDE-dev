@@ -64,6 +64,7 @@ class eMcu : public DataSpace, public eIou
 
         void setDebugger( BaseDebugger* deb );
         void setDebugging( bool d );
+        bool isDebugging(){ return m_debugging; }
 
         uint16_t getFlashValue( int address ) { return m_progMem[address]; }
         void     setFlashValue( int address, uint16_t value ) { m_progMem[address] = value; }
@@ -115,6 +116,18 @@ class eMcu : public DataSpace, public eIou
 
         void setMain() { m_pSelf = this; }
 
+        // Disassembly rows produced by the active debugger (when libbfd /
+        // libopcodes are linked in). Consumed by the Disassembly tab in
+        // the MCU Monitor; empty when no debug build has been processed.
+        struct DisAsmRow {
+            uint32_t pc;     // byte address in flash
+            QString  text;   // formatted instruction (mnemonic + operands)
+            QString  file;   // local source path (empty if no correspondence)
+            int      line;   // source line (0 if none)
+        };
+        const QVector<DisAsmRow>& disAsm() const { return m_disAsm; }
+        void setDisAsm( QVector<DisAsmRow> rows ) { m_disAsm = std::move( rows ); }
+
     protected:
  static eMcu* m_pSelf;
 
@@ -134,6 +147,8 @@ class eMcu : public DataSpace, public eIou
 
         uint32_t m_romSize;
         QVector<int> m_eeprom;
+
+        QVector<DisAsmRow> m_disAsm; // populated by AvrGccDebugger::postProcess
         bool m_saveEepr;
 
         std::vector<McuModule*> m_modules;

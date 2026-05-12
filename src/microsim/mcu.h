@@ -91,6 +91,14 @@ class Mcu : public Chip, public Linker
 
         QString device() { return m_device; }
         bool isScripted() { return m_scripted; }
+
+        // Hooks consumed by CircuitView when this MCU is dropped on the
+        // schematic. Subclasses (Arduino-style boards, PIC families, etc.)
+        // override these to seed the right file extension, board label and
+        // skeleton template. Defaults assume a raw MCU with no board.
+        virtual QString defaultExtension() const;
+        virtual QString boardName()        const { return QString(); }
+        virtual QString templateContent()  const;
         Cpu8bits* cpu() { return m_eMcu.cpu(); }
 
         void reset() { m_eMcu.hardReset( true ); }

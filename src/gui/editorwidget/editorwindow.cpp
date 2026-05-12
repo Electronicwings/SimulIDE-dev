@@ -88,10 +88,19 @@ bool EditorWindow::uploadFirmware( bool debug )
     CodeEditor* ce = getCodeEditor();
     if( !ce ) return false;
 
+#ifdef __EMSCRIPTEN__
+    // remoteCompile() is async on WASM (no QEventLoop — that crashes
+    // ASYNCIFY). Calling upload() here would read /tmp/<name>.hex BEFORE
+    // the new hex is written. Set the upload-chain flag instead; the
+    // build-finished lambda calls upload() once the fresh hex lands.
+    if( BaseDebugger* dbg = ce->getCompiler() ) dbg->setUploadAfterBuild( true );
+    ce->compile( debug );
+    return true; // dispatched; result reported via output pane + MCU load
+#else
     bool ok = ce->compile( debug );
     if( ok ) ok = ce->getCompiler()->upload();
-
     return ok;
+#endif
 }
 
 void EditorWindow::debug()
@@ -145,12 +154,14 @@ void EditorWindow::reset()
 }
 
 void EditorWindow::stop()
-{ 
+{
     stopDebbuger();
     m_outPane.appendLine( "\n"+tr("Debugger Stopped ")+"\n" );
     m_debuggerToolBar->setVisible( false );
     m_compileToolBar->setVisible( true );
+#ifndef HIDE_SOME_ACTIONS
     m_editorToolBar->setVisible( true);
+#endif
 }
 
 void EditorWindow::initDebbuger()
@@ -173,7 +184,9 @@ void EditorWindow::initDebbuger()
         reset();
 
         m_outPane.appendLine("\n"+tr("Debugger Started")+"\n");
+#ifndef HIDE_SOME_ACTIONS
         m_editorToolBar->setVisible( false );
+#endif
         m_compileToolBar->setVisible( false );
         m_debuggerToolBar->setVisible( true );
 
@@ -267,6 +280,9 @@ void EditorWindow::loadCompilers()
 {
     m_compilers.insert("Arduino", {":/arduino.xml", "arduino"} );
     m_compilers.insert("AScript", {":/angelscript.xml", "ascript"} );
+    // Generic: no local toolchain. Used for non-Arduino MCU drops so .cpp
+    // files have a build target — actual compile is performed server-side.
+    m_compilers.insert("Generic", {":/generic.xml", "generic"} );
 
     // User compiler data
     QString compilsPath = MainWindow::self()->getUserFilePath("codeeditor/compilers");

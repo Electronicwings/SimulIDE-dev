@@ -657,18 +657,60 @@ void Component::paintSelected( QPainter* p )
 {
     if( m_warning || m_crashed )
     {
-        double speed=0, opaci=1;
+        // Outline + corner badge (warning) or dark "burnt" overlay + red X
+        // (crashed) — never a translucent fill in the LED's colour space,
+        // so the component's configured colour stays visible/identifiable
+        // even when something is wrong. paintSelected is called every
+        // frame while the flag is set, so m_opCount drives the pulse.
+        p->save();
+        const QRectF br = boundingRect();
+
         if( m_crashed ){
-            speed = 0.1; opaci = 0;
-            p->fillRect( boundingRect(), QColor(255, 100, 0, 150) );
+            // Charred body + red X. Smoke isn't drawn because boundingRect
+            // would clip a wisp drawn above the component.
+            m_opCount += 0.1;
+            if( m_opCount > 0.6 ) m_opCount = 0.0;
+
+            p->setOpacity( 0.85 );
+            p->setBrush( QColor(40, 35, 30) );
+            p->setPen( Qt::NoPen );
+            p->drawRoundedRect( br, 2, 2 );
+
+            p->setOpacity( 0.6 + m_opCount );
+            QPen xpen( QColor(255, 60, 40), 2 );
+            p->setPen( xpen );
+            const QPointF c = br.center();
+            const qreal sz = qMin( br.width(), br.height() ) * 0.35;
+            p->drawLine( c + QPointF(-sz,-sz), c + QPointF( sz, sz) );
+            p->drawLine( c + QPointF(-sz, sz), c + QPointF( sz,-sz) );
         }
-        else if( m_warning ){
-            speed = 0.05; opaci = 0.4;
-            p->fillRect( boundingRect(), QColor(200, 200, 0, 150) );
+        else { // m_warning — show the LED still glowing in its colour,
+               // wrap a pulsing amber border around it, and place a "!"
+               // badge in the top-right corner.
+            m_opCount += 0.05;
+            if( m_opCount > 0.6 ) m_opCount = 0.0;
+
+            p->setOpacity( m_opCount + 0.4 );
+            QPen borderPen( QColor(255, 140, 0), 2 );
+            p->setPen( borderPen );
+            p->setBrush( Qt::NoBrush );
+            p->drawRect( br );
+
+            p->setOpacity( 1.0 );
+            const qreal d = 9.0;
+            QRectF badge( br.right() - d - 1, br.top() - d/2, d, d );
+            p->setBrush( QColor(255, 140, 0) );
+            p->setPen( QPen( QColor(0,0,0), 1 ) );
+            p->drawEllipse( badge );
+
+            QFont f = p->font();
+            f.setPixelSize( 8 );
+            f.setBold( true );
+            p->setFont( f );
+            p->setPen( Qt::white );
+            p->drawText( badge, Qt::AlignCenter, "!" );
         }
-        m_opCount += speed;
-        if( m_opCount > 0.6 ) m_opCount = 0.0;
-        p->setOpacity( m_opCount+opaci );
+        p->restore();
     }
     if( isSelected() )
     {

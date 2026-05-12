@@ -141,7 +141,7 @@ void MemTable::resizeTable( int dataSize )
 
     float scale = MainWindow::self()->fontScale();
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setPixelSize( round(13*scale) );
 
     table->horizontalHeader()->setFont( font );
@@ -174,7 +174,7 @@ void MemTable::resizeTable( int dataSize )
             }
             table->setItem( row, col, it );
         }
-        table->setRowHeight( row, 20*scale );
+        table->setRowHeight( row, 28*scale );
     }
     for( int col=0; col<16; ++col )
     {
@@ -182,6 +182,14 @@ void MemTable::resizeTable( int dataSize )
         table->setColumnWidth( col+17, (8*m_cellBytes+4+4)*scale );
     }
     table->setColumnWidth( 16, 5 );
+
+    // Most hex headers ("00".."0F" / "0".."F") fit the calculated widths,
+    // but the same helper also covers any other table that reuses MemTable
+    // with longer header labels in the future.
+    fitColumnsToHeaders( table );
+
+    // Set minimum size to ensure table is always reasonably sized
+    table->setMinimumSize( 500, 300 );
 
     m_blocked = false;
 }

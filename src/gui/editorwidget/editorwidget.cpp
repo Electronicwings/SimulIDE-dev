@@ -493,9 +493,19 @@ void EditorWidget::updateDoc( int )
     CodeEditor* ce = getCodeEditor();
     m_findRepDialog->setEditor( ce );
     if( !ce ) return;
+#ifndef HIDE_SOME_ACTIONS
     bool show = ce->compName() == "None" ? false : true;
     confCompAct->setVisible( show );
     confFileAct->setVisible( true );
+#endif
+}
+
+void EditorWidget::closeFileTab( const QString& filePath )
+{
+    if( !m_fileList.contains( filePath ) ) return;
+    QWidget* w = m_fileList.value( filePath );
+    int idx = m_docWidget->indexOf( w );
+    if( idx >= 0 ) closeTab( idx );
 }
 
 void EditorWidget::closeTab( int index )
@@ -516,8 +526,10 @@ void EditorWidget::closeTab( int index )
         enableFileActs( false );
         enableDebugActs( false );
         m_findRepDialog->hide();
+#ifndef HIDE_SOME_ACTIONS
         confFileAct->setVisible( false );
         confCompAct->setVisible( false );
+#endif
     }
 
     int last = m_docWidget->count()-1;
@@ -572,6 +584,7 @@ void EditorWidget::updateRecentFileActions()
 
     int numRecentFiles = qMin( files.size(), (int)MaxRecentFiles );
 
+#ifndef HIDE_SOME_ACTIONS
     for( int i=0; i<numRecentFiles; i++ )
     {
         QString text = QString::number(i + 1)+" "+getFileName( files[i] );
@@ -580,6 +593,7 @@ void EditorWidget::updateRecentFileActions()
         recentFileActs[i]->setVisible( true );
     }
     for( int i=numRecentFiles; i<MaxRecentFiles; i++ ) recentFileActs[i]->setVisible(false);
+#endif
 }
 
 void EditorWidget::readSettings()
@@ -592,7 +606,7 @@ void EditorWidget::readSettings()
     m_fontSize = 14;
     m_tabSize = 4;
 
-    m_font.setFamily("Ubuntu Mono");
+    m_font.setFamily("Roboto");
     m_font.setWeight( QFont::Normal );
     m_font.setPixelSize( m_fontSize );
 
@@ -643,14 +657,16 @@ void EditorWidget::findReplaceDialog()
 
 void EditorWidget::enableFileActs( bool enable )
 {
+#ifndef HIDE_SOME_ACTIONS
     saveAct->setEnabled( enable );
     saveAsAct->setEnabled( enable );
+    findQtAct->setEnabled( enable );
+#endif
     cutAct->setEnabled( enable );
     copyAct->setEnabled( enable );
     pasteAct->setEnabled( enable );
     undoAct->setEnabled( enable );
     redoAct->setEnabled( enable );
-    findQtAct->setEnabled( enable );
 }
 
 void EditorWidget::enableDebugActs( bool enable )
@@ -685,11 +701,24 @@ void EditorWidget::createWidgets()
     vLayout->setSpacing(0);
     vLayout->setContentsMargins(0, 0, 0, 0);
 
+#ifndef HIDE_SOME_ACTIONS
     hLayout->addWidget( m_editorToolBar );
     hLayout->addWidget( m_findToolBar );
+#endif
     hLayout->addWidget( m_compileToolBar );
     hLayout->addWidget( m_debuggerToolBar );
     hLayout->addStretch();
+
+    // double fs = MainWindow::self()->fontScale()*20;
+    // QToolButton* closeEditorBtn = new QToolButton( this );
+    // closeEditorBtn->setIcon( QIcon(":/remove.svg") );
+    // closeEditorBtn->setIconSize( QSize( fs*0.9, fs*0.9 ) );
+    // closeEditorBtn->setToolTip( tr("Close Editor") );
+    // closeEditorBtn->setAutoRaise( true );
+    // connect( closeEditorBtn, &QToolButton::clicked,
+    //          [](){ MainWindow::self()->hideEditor(); } );
+    // hLayout->addWidget( closeEditorBtn );
+
     vLayout->addLayout( hLayout );
 
     QSplitter* splitter0 = new QSplitter( this );
@@ -700,7 +729,7 @@ void EditorWidget::createWidgets()
     m_docWidget = new QTabWidget( this );
     m_docWidget->setObjectName("docWidget");
     m_docWidget->setTabPosition( QTabWidget::North );
-    m_docWidget->setTabsClosable ( true );
+    // m_docWidget->setTabsClosable ( true );
     m_docWidget->setContextMenuPolicy( Qt::CustomContextMenu );
 
     double fontScale = MainWindow::self()->fontScale();
@@ -710,7 +739,7 @@ void EditorWidget::createWidgets()
 
     splitter0->addWidget( m_docWidget );
     splitter0->addWidget( &m_outPane );
-    splitter0->setSizes( {300, 100} );
+    splitter0->setSizes( {500, 170} );
 
     connect( m_docWidget, SIGNAL( tabCloseRequested(int)),
              this,        SLOT(   closeTab(int)), Qt::UniqueConnection);
@@ -723,6 +752,7 @@ void EditorWidget::createWidgets()
 
 void EditorWidget::createActions()
 {
+#ifndef HIDE_SOME_ACTIONS
     confEditAct = new QAction(QIcon(":/blank.png"), tr("Editor Settings"), this);
     confEditAct->setStatusTip(tr("Editor Settings"));
     connect( confEditAct, SIGNAL(triggered()), this, SLOT(confEditor()), Qt::UniqueConnection);
@@ -762,6 +792,7 @@ void EditorWidget::createActions()
     saveAsAct->setStatusTip(tr("Save the document under a new name"));
     saveAsAct->setEnabled(false);
     connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAs()), Qt::UniqueConnection);
+#endif
 
     cutAct = new QAction(QIcon(":/cut.svg"), tr("Cu&t\tCtrl+X"), this);
     cutAct->setStatusTip(tr("Cut the current selection's contents to the clipboard"));
@@ -829,10 +860,12 @@ void EditorWidget::createActions()
     loadAct->setEnabled(false);
     connect( loadAct, SIGNAL(triggered()), this, SLOT(upload()), Qt::UniqueConnection );
 
+#ifndef HIDE_SOME_ACTIONS
     findQtAct = new QAction(QIcon(":/find.svg"),tr("Find Replace"), this);
     findQtAct->setStatusTip(tr("Find Replace"));
     findQtAct->setEnabled(false);
     connect(findQtAct, SIGNAL(triggered()), this, SLOT(findReplaceDialog()), Qt::UniqueConnection);
+#endif
 
     debugAct =  new QAction(QIcon(":/debug.svg"),tr("Debug"), this);
     debugAct->setStatusTip(tr("Start Debugger"));
@@ -842,6 +875,9 @@ void EditorWidget::createActions()
 
 void EditorWidget::createToolBars()
 {
+    double fs = MainWindow::self()->fontScale()*25;
+
+#ifndef HIDE_SOME_ACTIONS
     m_settingsMenu.addAction( confEditAct );
     m_settingsMenu.addAction( confFileAct );
     m_settingsMenu.addAction( confCompAct );
@@ -852,15 +888,6 @@ void EditorWidget::createToolBars()
     settingsButton->setIcon( QIcon(":/config.svg") );
     settingsButton->setPopupMode( QToolButton::InstantPopup );
 
-    for( int i=0; i<MaxRecentFiles; i++ ) m_fileMenu.addAction( recentFileActs[i] );
-    QToolButton* fileButton = new QToolButton( this );
-    fileButton->setToolTip( tr("Last Files") );
-    fileButton->setMenu( &m_fileMenu );
-    fileButton->setIcon( QIcon(":/lastfiles.svg") );
-    fileButton->setPopupMode( QToolButton::InstantPopup );
-
-    double fs = MainWindow::self()->fontScale()*20;
-
     m_editorToolBar = new QToolBar( this );
     m_editorToolBar->setIconSize( QSize( fs, fs ) );
     m_editorToolBar->addWidget( settingsButton );
@@ -868,6 +895,14 @@ void EditorWidget::createToolBars()
     spacer->setFixedWidth( 15 );
     m_editorToolBar->addWidget( spacer );
     m_editorToolBar->addSeparator();//..........................
+
+    for( int i=0; i<MaxRecentFiles; i++ ) m_fileMenu.addAction( recentFileActs[i] );
+    QToolButton* fileButton = new QToolButton( this );
+    fileButton->setToolTip( tr("Last Files") );
+    fileButton->setMenu( &m_fileMenu );
+    fileButton->setIcon( QIcon(":/lastfiles.svg") );
+    fileButton->setPopupMode( QToolButton::InstantPopup );
+
     m_editorToolBar->addWidget( fileButton );
 
     m_editorToolBar->addAction(newAct);
@@ -880,6 +915,7 @@ void EditorWidget::createToolBars()
     m_findToolBar->setIconSize( QSize( fs, fs ) );
     m_findToolBar->addAction(findQtAct);
     m_findToolBar->addSeparator();
+#endif
 
     m_compileToolBar = new QToolBar( this );
     m_compileToolBar->setIconSize( QSize( fs, fs ) );

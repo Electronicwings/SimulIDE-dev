@@ -84,6 +84,10 @@ class MainWindow : public QMainWindow
         void setUserPath( QString p );
         void getUserPath();                               // File open Dialog
         
+        void showEditor();
+        void hideEditor();
+
+        QLineEdit* searchBar() const { return m_searchComponent; }
 
         Installer* installer() { return m_installer; }
 
@@ -92,6 +96,7 @@ class MainWindow : public QMainWindow
     protected:
         void closeEvent( QCloseEvent* event );
         void keyPressEvent( QKeyEvent* event );
+        bool eventFilter( QObject* obj, QEvent* event ) override;
 
     private slots:
         void searchChanged();
@@ -131,6 +136,7 @@ class MainWindow : public QMainWindow
         QWidget*       m_listWidget;
         QLineEdit*     m_searchComponent;
         QPushButton*   m_clearButton;
+        QWidget*       m_searchBarContainer;
         FileWidget*    m_fileTree;
         EditorWindow*  m_editor;
         QTabWidget*    m_sidepanel;

@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SimulIDE Bridge Test Harness</title>
+<!--
+    Same-origin parent page that loads simulide.html in an iframe and
+    drives Module.SimulIDEBridge.instance() through buttons. Every action
+    and bridge event is logged to the console AND the in-page log pane.
+
+    To run: copy this file next to simulide.html (e.g. into
+    executables/SimulIDE_X.X.X/) and serve them with the bundled Python
+    server, then open test.html.
+-->
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; font-family: system-ui, sans-serif; font-size: 13px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(360px, 1fr); height: 100vh; }
+  .iframe-pane { border-right: 1px solid #d8dee6; min-width: 0; }
+  .iframe-pane iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .control-pane { padding: 12px 14px; overflow: auto; background: #fafbfc; }
+  h2 { margin: 0 0 8px; font-size: 14px; }
+  h3 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; color: #57606a; letter-spacing: .5px; }
+  .status { display: flex; gap: 16px; padding: 8px 10px; border: 1px solid #e5e9f0; border-radius: 6px; background: #fff; }
+  .status b { color: #1f2328; }
+  .status .ready  { color: #16a34a; font-weight: 600; }
+  .status .wait   { color: #d97706; font-weight: 600; }
+  .status .err    { color: #dc2626; font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  button { padding: 6px 12px; border: 1px solid #d8dee6; background: #fff; border-radius: 5px; cursor: pointer; font-size: 12px; }
+  button:hover { background: #f4f6f9; border-color: #2563eb; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  textarea { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+             border: 1px solid #d8dee6; border-radius: 5px; padding: 6px; resize: vertical; background: #fff; }
+  input[type=file] { font-size: 11px; }
+  pre#log { background: #1f2328; color: #e5e9f0; padding: 8px; border-radius: 6px;
+            height: 220px; overflow: auto; font-family: ui-monospace, Menlo, monospace;
+            font-size: 11px; line-height: 1.4; margin: 0; white-space: pre-wrap; word-break: break-word; }
+  table.readings { width: 100%; border-collapse: collapse; font-family: ui-monospace, Menlo, monospace;
+                   font-size: 11px; background: #fff; border: 1px solid #d8dee6; border-radius: 5px; }
+  table.readings th, table.readings td { padding: 4px 6px; text-align: left; border-bottom: 1px solid #eef0f4; }
+  table.readings th { background: #f4f6f9; color: #57606a; font-weight: 600; }
+  table.readings td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { color: #57606a; padding: 6px; font-style: italic; }
+  .log-event  { color: #7dd3fc; }
+  .log-action { color: #facc15; }
+  .log-error  { color: #f87171; }
+  .log-info   { color: #86efac; }
+  .log-warn   { color: #fcd34d; }
+  details { margin-top: 6px; }
+  details summary { cursor: pointer; color: #57606a; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="layout">
+    <div class="iframe-pane">
+      <iframe id="sim" src="simulide.html" allow="cross-origin-isolated"></iframe>
+    </div>
+    <div class="control-pane">
+      <h2>SimulIDE bridge test harness</h2>
+      <div class="status">
+        <span>Bridge: <b id="bridge-status" class="wait">waiting…</b></span>
+        <span>Sim: <b id="sim-state">—</b></span>
+      </div>
+
+      <h3>Lifecycle</h3>
+      <div class="row">
+        <button id="btn-start">▶ Start</button>
+        <button id="btn-pause">❚❚ Pause / Resume</button>
+        <button id="btn-stop">■ Stop</button>
+        <button id="btn-state">Get state</button>
+      </div>
+
+      <h3>Build &amp; flash</h3>
+      <div class="row">
+        <button id="btn-flash">Compile &amp; flash</button>
+      </div>
+
+      <h3>Circuit (.sim2)</h3>
+      <textarea id="circuit-xml" rows="5" placeholder="Paste a .sim2 XML here, or use the file picker below."></textarea>
+      <div class="row">
+        <button id="btn-set-circuit">setCircuit(textarea)</button>
+        <button id="btn-get-circuit">getCircuit() → textarea</button>
+        <input type="file" id="circuit-file" accept=".sim2,.xml">
+      </div>
+
+      <h3>Sketch (source code)</h3>
+      <textarea id="sketch-src" rows="8" placeholder="Paste source here, or use the file picker below."></textarea>
+      <div class="row">
+        <button id="btn-set-sketch">setSketch(textarea)</button>
+        <button id="btn-get-sketch">getSketch() → textarea</button>
+        <input type="file" id="sketch-file" accept=".ino,.cpp,.c,.h">
+      </div>
+
+      <h3>Readings</h3>
+      <div class="row">
+        <button id="btn-refresh-readings">Refresh</button>
+        <label style="display:inline-flex; align-items:center; gap:4px;">
+          <input type="checkbox" id="poll-readings"> Poll every
+          <input id="poll-interval" type="number" min="100" step="100" value="500" style="width:60px;"> ms
+        </label>
+      </div>
+      <div id="meters-table"><div class="empty">No meters discovered yet.</div></div>
+      <div id="nodes-table" style="margin-top:6px;"><div class="empty">No nodes discovered yet.</div></div>
+
+      <h3>Sources &amp; switches</h3>
+      <div class="row">
+        <button id="btn-refresh-controls">Refresh</button>
+        <button id="btn-press-test" title="hold this to press the focused Push">Press &amp; hold (Push only)</button>
+      </div>
+      <div id="controls-list"><div class="empty">No sources or switches yet — refresh after a circuit is loaded.</div></div>
+
+      <h3>Event log</h3>
+      <div class="row">
+        <button id="btn-clear-log">Clear log</button>
+        <button id="btn-rebind">Rebind events</button>
+      </div>
+      <pre id="log"></pre>
+
+      <details>
+        <summary>How this works</summary>
+        <p style="margin: 6px 0; color: #57606a;">
+          The iframe loads <code>simulide.html</code>. Once the WASM module
+          is ready, this page reaches <code>iframe.contentWindow.Module
+          .SimulIDEBridge.instance()</code> and wires
+          <code>onStateChange</code> / <code>onError</code> /
+          <code>onCompiled</code>. Buttons call the corresponding C++
+          methods through embind. Same-origin only — both files must be
+          served from the same host/port.
+        </p>
+      </details>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const iframe        = document.getElementById('sim');
+  const logEl         = document.getElementById('log');
+  const bridgeStatus  = document.getElementById('bridge-status');
+  const simState      = document.getElementById('sim-state');
+  const circuitXmlTA  = document.getElementById('circuit-xml');
+  const sketchSrcTA   = document.getElementById('sketch-src');
+
+  let bridge = null;
+
+  // ----- logging --------------------------------------------------------
+
+  function log(level, ...parts) {
+    const ts   = new Date().toLocaleTimeString([], { hour12: false });
+    const text = parts.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join(' ');
+    const line = `[${ts}] [${level}] ${text}`;
+    const span = document.createElement('span');
+    span.className = 'log-' + level;
+    span.textContent = line + '\n';
+    logEl.appendChild(span);
+    logEl.scrollTop = logEl.scrollHeight;
+    const fn = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
+    console[fn]('[bridge-test]', line);
+  }
+
+  // ----- bridge ready polling ------------------------------------------
+
+  function waitForBridge() {
+    log('info', 'Waiting for Module.SimulIDEBridge inside iframe…');
+    const startedAt = Date.now();
+    const tick = setInterval(() => {
+      let M;
+      try { M = iframe.contentWindow && iframe.contentWindow.Module; }
+      catch (e) {
+        clearInterval(tick);
+        log('error', 'Cross-origin iframe — same-origin is required:', e.message);
+        bridgeStatus.textContent = 'cross-origin';
+        bridgeStatus.className = 'err';
+        return;
+      }
+      if (M && M.SimulIDEBridge && typeof M.SimulIDEBridge.instance === 'function') {
+        clearInterval(tick);
+        try {
+          bridge = M.SimulIDEBridge.instance();
+          bridgeStatus.textContent = 'ready';
+          bridgeStatus.className = 'ready';
+          log('info', `Bridge ready after ${((Date.now() - startedAt)/1000).toFixed(1)}s`);
+          wireSubscriptions();
+        } catch (e) {
+          log('error', 'instance() threw:', e.message || e);
+          bridgeStatus.textContent = 'error';
+          bridgeStatus.className = 'err';
+        }
+      } else if (Date.now() - startedAt > 60000) {
+        clearInterval(tick);
+        log('error', 'Bridge not available after 60s.');
+        bridgeStatus.textContent = 'timeout';
+        bridgeStatus.className = 'err';
+      }
+    }, 250);
+  }
+
+  function wireSubscriptions() {
+    if (!bridge) return;
+    bridge.onStateChange(s => {
+      log('event', 'onStateChange →', s);
+      simState.textContent = s;
+    });
+    bridge.onError(msg => log('error', 'onError →', msg));
+    bridge.onCompiled(ok => log('event', `onCompiled → ${ok ? 'OK' : 'FAILED'}`));
+    log('info', 'Subscribed to state / error / compiled events.');
+  }
+
+  // ----- bridge call wrapper -------------------------------------------
+
+  function callBridge(name, ...args) {
+    if (!bridge) {
+      log('warn', `${name}() ignored — bridge not ready yet.`);
+      return undefined;
+    }
+    const argDesc = args.map(a => typeof a === 'string'
+        ? (a.length > 40 ? `"${a.slice(0,40)}…(${a.length})"` : `"${a}"`)
+        : JSON.stringify(a)).join(', ');
+    try {
+      const result = bridge[name](...args);
+      const resDesc = typeof result === 'string'
+        ? (result.length > 60 ? `"${result.slice(0,60)}…(${result.length})"` : `"${result}"`)
+        : JSON.stringify(result);
+      log('action', `${name}(${argDesc}) → ${resDesc}`);
+      return result;
+    } catch (e) {
+      log('error', `${name}() threw:`, e.message || e);
+      return undefined;
+    }
+  }
+
+  // ----- buttons --------------------------------------------------------
+
+  document.getElementById('btn-start').onclick = () => callBridge('startSimulation');
+  document.getElementById('btn-pause').onclick = () => callBridge('pauseSimulation');
+  document.getElementById('btn-stop').onclick  = () => callBridge('stopSimulation');
+  document.getElementById('btn-state').onclick = () => {
+    const s = callBridge('getSimulationState');
+    if (typeof s === 'string') simState.textContent = s;
+  };
+  document.getElementById('btn-flash').onclick = () => callBridge('compileAndFlash');
+
+  document.getElementById('btn-set-circuit').onclick = () => {
+    const xml = circuitXmlTA.value;
+    if (!xml) { log('warn', 'Circuit textarea is empty.'); return; }
+    callBridge('setCircuit', xml);
+  };
+  document.getElementById('btn-get-circuit').onclick = () => {
+    const xml = callBridge('getCircuit');
+    if (typeof xml === 'string') {
+      circuitXmlTA.value = xml;
+      log('info', `Wrote ${xml.length} chars into circuit textarea.`);
+    }
+  };
+
+  document.getElementById('btn-set-sketch').onclick = () => {
+    const src = sketchSrcTA.value;
+    if (!src) { log('warn', 'Sketch textarea is empty.'); return; }
+    callBridge('setSketch', src);
+  };
+  document.getElementById('btn-get-sketch').onclick = () => {
+    const src = callBridge('getSketch');
+    if (typeof src === 'string') {
+      sketchSrcTA.value = src;
+      log('info', `Wrote ${src.length} chars into sketch textarea.`);
+    }
+  };
+
+  document.getElementById('circuit-file').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const text = await f.text();
+    circuitXmlTA.value = text;
+    log('info', `Loaded ${f.name} (${text.length} chars) into circuit textarea.`);
+  });
+
+  document.getElementById('sketch-file').addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const text = await f.text();
+    sketchSrcTA.value = text;
+    log('info', `Loaded ${f.name} (${text.length} chars) into sketch textarea.`);
+  });
+
+  // ----- readings (meters + nodes) -------------------------------------
+
+  const metersHost = document.getElementById('meters-table');
+  const nodesHost  = document.getElementById('nodes-table');
+
+  function fmt(v) {
+    if (v === null || v === undefined || Number.isNaN(v)) return '—';
+    const a = Math.abs(v);
+    if (a !== 0 && (a < 1e-3 || a >= 1e6)) return v.toExponential(3);
+    return v.toFixed(4);
+  }
+
+  function renderMeters(rows) {
+    if (!rows.length) { metersHost.innerHTML = '<div class="empty">No meters on circuit.</div>'; return; }
+    let h = '<table class="readings"><thead><tr><th>Label</th><th>Type</th><th>Id</th><th>Value</th><th>Unit</th></tr></thead><tbody>';
+    for (const r of rows) {
+      h += `<tr><td>${r.label || ''}</td><td>${r.type}</td><td>${r.id}</td>`
+         + `<td class="num">${fmt(r.value)}</td><td>${r.unit}</td></tr>`;
+    }
+    metersHost.innerHTML = h + '</tbody></table>';
+  }
+
+  function renderNodes(rows) {
+    if (!rows.length) { nodesHost.innerHTML = '<div class="empty">No nodes (start the simulation).</div>'; return; }
+    let h = '<table class="readings"><thead><tr><th>Node id</th><th>#</th><th>Voltage</th></tr></thead><tbody>';
+    for (const r of rows) {
+      h += `<tr><td>${r.id}</td><td class="num">${r.number}</td><td class="num">${fmt(r.voltage)} V</td></tr>`;
+    }
+    nodesHost.innerHTML = h + '</tbody></table>';
+  }
+
+  function refreshReadings(silent = false) {
+    if (!bridge) return;
+    try {
+      const m = JSON.parse(bridge.readAllMeters() || '[]');
+      const n = JSON.parse(bridge.readAllNodes()  || '[]');
+      renderMeters(m);
+      renderNodes(n);
+      if (!silent) log('action', `readAllMeters() → ${m.length} | readAllNodes() → ${n.length}`);
+    } catch (e) {
+      log('error', 'refreshReadings:', e.message || e);
+    }
+  }
+
+  let pollTimer = null;
+  function setPolling(on) {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (on) {
+      const ms = Math.max(100, parseInt(document.getElementById('poll-interval').value, 10) || 500);
+      pollTimer = setInterval(() => refreshReadings(true), ms);
+      log('info', `Polling readings every ${ms}ms.`);
+    } else {
+      log('info', 'Polling stopped.');
+    }
+  }
+
+  document.getElementById('btn-refresh-readings').onclick = () => refreshReadings(false);
+  document.getElementById('poll-readings').onchange = (e) => setPolling(e.target.checked);
+  document.getElementById('poll-interval').onchange = () => {
+    if (document.getElementById('poll-readings').checked) setPolling(true);
+  };
+
+  // ----- controllables (sources & switches) ----------------------------
+
+  const controlsHost = document.getElementById('controls-list');
+  let focusedPushId = null;
+
+  function valueInputFor(propName, value) {
+    const id = `prop-${Math.random().toString(36).slice(2, 8)}-${propName}`;
+    if (typeof value === 'boolean') {
+      return `<label><input type="checkbox" id="${id}" data-prop="${propName}" ${value ? 'checked':''}> ${propName}</label>`;
+    }
+    if (typeof value === 'number') {
+      return `<label>${propName} <input type="number" step="any" id="${id}" data-prop="${propName}" value="${value}" style="width:80px;"></label>`;
+    }
+    return `<label>${propName} <input type="text" id="${id}" data-prop="${propName}" value="${value ?? ''}" style="width:120px;"></label>`;
+  }
+
+  function renderControllable(c) {
+    const props = c.props || {};
+    const inputs = Object.keys(props).map(k => valueInputFor(k, props[k])).join(' ');
+    const isPush = c.type === 'Push';
+    return `
+      <div class="ctrl-row" data-id="${c.id}" data-type="${c.type}"
+           style="border:1px solid #e5e9f0; border-radius:6px; padding:6px 8px; margin-bottom:6px; background:#fff;">
+        <div style="display:flex; gap:10px; align-items:baseline; margin-bottom:4px;">
+          <b>${c.label || '(no label)'}</b>
+          <span style="color:#57606a; font-size:11px;">${c.type}</span>
+          <span style="color:#9aa3ae; font-size:11px;">${c.id}</span>
+          <span style="color:#9aa3ae; font-size:11px;">[${c.kind}]</span>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; font-size:11px;">
+          ${inputs}
+          <button class="apply-btn" type="button">Apply</button>
+          ${isPush ? '<button class="press-btn" type="button" title="hold to press">Press &amp; hold</button>' : ''}
+        </div>
+      </div>`;
+  }
+
+  function refreshControllables() {
+    if (!bridge) { log('warn', 'refreshControllables — bridge not ready.'); return; }
+    let list;
+    try { list = JSON.parse(bridge.listControllables() || '[]'); }
+    catch (e) { log('error', 'listControllables parse:', e.message); return; }
+
+    if (!list.length) { controlsHost.innerHTML = '<div class="empty">No controllable components on circuit.</div>'; return; }
+
+    const detailed = list.map(c => {
+      try { return JSON.parse(bridge.getProperties(c.id) || 'null'); }
+      catch { return null; }
+    }).filter(Boolean);
+
+    controlsHost.innerHTML = detailed.map(renderControllable).join('');
+    log('action', `listControllables() → ${detailed.length}`);
+
+    controlsHost.querySelectorAll('.ctrl-row').forEach(row => {
+      const id = row.dataset.id;
+      row.querySelector('.apply-btn').onclick = () => {
+        const obj = {};
+        row.querySelectorAll('[data-prop]').forEach(inp => {
+          const k = inp.dataset.prop;
+          if (inp.type === 'checkbox') obj[k] = inp.checked;
+          else if (inp.type === 'number') {
+            if (inp.value !== '') obj[k] = parseFloat(inp.value);
+          } else if (inp.value !== '') obj[k] = inp.value;
+        });
+        const ok = callBridge('setProperty', id, JSON.stringify(obj));
+        if (ok) setTimeout(refreshControllables, 50);
+      };
+      const press = row.querySelector('.press-btn');
+      if (press) {
+        const down = () => { focusedPushId = id; callBridge('pressButton', id, true);  };
+        const up   = () => {                       callBridge('pressButton', id, false); };
+        press.addEventListener('mousedown',  down);
+        press.addEventListener('mouseup',    up);
+        press.addEventListener('mouseleave', up);
+        press.addEventListener('touchstart', e => { e.preventDefault(); down(); });
+        press.addEventListener('touchend',   e => { e.preventDefault(); up();   });
+      }
+    });
+  }
+
+  document.getElementById('btn-refresh-controls').onclick = refreshControllables;
+  // Convenience top-level press button — operates on the most recently
+  // pressed Push, useful when polling refresh has rebuilt the row DOM.
+  const topPress = document.getElementById('btn-press-test');
+  topPress.addEventListener('mousedown', () => { if (focusedPushId) callBridge('pressButton', focusedPushId, true);  });
+  topPress.addEventListener('mouseup',   () => { if (focusedPushId) callBridge('pressButton', focusedPushId, false); });
+  topPress.addEventListener('mouseleave',() => { if (focusedPushId) callBridge('pressButton', focusedPushId, false); });
+
+  document.getElementById('btn-clear-log').onclick = () => { logEl.textContent = ''; };
+  document.getElementById('btn-rebind').onclick    = () => wireSubscriptions();
+
+  // ----- kick off when the iframe finishes loading --------------------
+
+  iframe.addEventListener('load', () => {
+    log('info', 'simulide.html iframe loaded — starting bridge poll.');
+    waitForBridge();
+  });
+})();
+</script>
+</body>
+</html>

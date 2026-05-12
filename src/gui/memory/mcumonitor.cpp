@@ -12,6 +12,9 @@
 #include "utils.h"
 
 #include "watcher.h"
+#include "disasmtable.h"
+#include "editorwindow.h"
+#include "codeeditor.h"
 
 MCUMonitor::MCUMonitor( QWidget* parent, eMcu* mcu )
           : QDialog( parent )
@@ -33,6 +36,7 @@ MCUMonitor::MCUMonitor( QWidget* parent, eMcu* mcu )
     m_ramMonitor   = nullptr;
     m_flashMonitor = nullptr;
     m_romMonitor   = nullptr;
+    m_disAsm       = nullptr;
 
     createStatusPC();
 
@@ -55,12 +59,18 @@ MCUMonitor::MCUMonitor( QWidget* parent, eMcu* mcu )
         m_ramTable = m_processor->getRamTable();
         if( spl ){
             spl->addWidget( m_ramTable );
-            this->resize( this->width()*2,this->height() );
-            spl->setSizes({350,460});
+            this->resize( 900, 500 );
+            this->setMinimumSize( 650, 380 );
+            spl->setSizes({420,450});
+            spl->setStretchFactor(0, 1);
+            spl->setStretchFactor(1, 1);
         }else{
             tabWidget->addTab( m_ramTable, tr("Watch") );
-            this->resize( 480,this->height() );
+            this->resize( 700, 480 );
+            this->setMinimumSize( 650, 380 );
         }
+        spl->setCollapsible(0, false);
+        spl->setCollapsible(1, false);
 
         m_ramMonitor = new MemTable( tabWidget, m_processor->ramSize() );
         connect( m_ramMonitor, SIGNAL( dataChanged(int, int)), this, SLOT(ramDataChanged(int, int)) );
@@ -80,6 +90,22 @@ MCUMonitor::MCUMonitor( QWidget* parent, eMcu* mcu )
         tabWidget->addTab( m_romMonitor, "EEPROM");
         connect( m_romMonitor,   SIGNAL(dataChanged(int, int)), this, SLOT(eepromDataChanged(int, int)) );
     }
+
+    // Disassembly tab — populated by AvrGccDebugger via libopcodes after
+    // each successful debug build. Empty until then; rows arrive on the
+    // first updateStep that observes a non-empty eMcu::disAsm().
+    m_disAsm = new DisAsmTable( tabWidget );
+    tabWidget->addTab( m_disAsm, "Disassembly" );
+    connect( m_disAsm, &DisAsmTable::sourceLineClicked,
+             this, [this]( const QString& file, int line ){
+        if( EditorWindow* ew = EditorWindow::self() ){
+            ew->loadFile( file );
+            if( CodeEditor* ce = ew->getCodeEditor() )
+                ce->setDebugLine( line );
+            MainWindow::self()->showEditor();
+        }
+    } );
+
     connect( tabWidget, SIGNAL(currentChanged(int)), this, SLOT(tabChanged(int)) );
 }
 
@@ -163,6 +189,24 @@ void MCUMonitor::updateStep()
          || Simulator::self()->simState() == SIM_PAUSED )
             m_flashMonitor->setAddrSelected( pc, m_jumpToAddress );
     }
+    if( m_disAsm )
+    {
+        // Refresh rows when the debugger has produced new disassembly
+        // (table is empty but eMcu has rows, or vice versa).
+        const QVector<eMcu::DisAsmRow>& rows = m_processor->disAsm();
+        if( m_disAsm->rowCount() != rows.size() )
+            m_disAsm->setRows( rows );
+
+        if( m_disAsm->isVisible() && !rows.isEmpty() ){
+            // Disassembly rows store byte addresses. updateStep's `pc`
+            // may have been multiplied by wordSize() already (when the
+            // byteButton is toggled), so re-fetch the raw word-PC and
+            // convert deterministically.
+            const int pcWord = m_processor->cpu()->getPC();
+            m_disAsm->highlightPc(
+                static_cast<uint32_t>( pcWord * m_processor->wordSize() ) );
+        }
+    }
 }
 
 void MCUMonitor::updateRamTable()
@@ -181,13 +225,13 @@ void MCUMonitor::createStatusPC()
     }
 
     float scale = MainWindow::self()->fontScale()*0.8;
-    int row_heigh = round( 22*scale );
-    int font_size = round(14*scale);
+    int row_heigh = round( 22*scale ) * 1.6;
+    int font_size = round(12*scale);
     int numberColor = 0x202090;
 
     QTableWidgetItem* it;
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setBold( true );
     font.setPixelSize( font_size );
     m_status.setFont( font );
@@ -195,6 +239,11 @@ void MCUMonitor::createStatusPC()
 
     m_status.setVerticalHeaderLabels( QStringList()<<" STATUS " );
     m_status.verticalHeader()->setFixedWidth( round(60*scale) );
+    // The fixed width above was sized for the assumed default font/scale.
+    // fitVerticalHeaderWidth widens it if the actual " STATUS " label
+    // (Roboto Bold) measures wider — protects against clipping on
+    // higher-DPI displays and locales where the label translates longer.
+    fitVerticalHeaderWidth( &m_status );
     m_status.horizontalHeader()->setMaximumSectionSize(row_heigh);
     m_status.horizontalHeader()->hide();
     m_status.setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
@@ -219,6 +268,7 @@ void MCUMonitor::createStatusPC()
 
     m_pc.setVerticalHeaderLabels( QStringList()<<" PC ");
     m_pc.verticalHeader()->setFixedWidth( round(31*scale) );
+    fitVerticalHeaderWidth( &m_pc );
     m_pc.horizontalHeader()->hide();
     m_pc.setHorizontalScrollBarPolicy( Qt::ScrollBarAlwaysOff );
     m_pc.setRowHeight( 0, row_heigh );

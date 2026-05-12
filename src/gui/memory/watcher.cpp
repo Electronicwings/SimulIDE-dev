@@ -46,7 +46,7 @@ Watcher::Watcher( QWidget* parent, Watched* cpu, bool proxy )
     float scale = MainWindow::self()->fontScale();
 
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setBold( true );
     font.setPixelSize( round(12.5*scale) );
 

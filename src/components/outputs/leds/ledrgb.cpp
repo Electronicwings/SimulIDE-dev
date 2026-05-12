@@ -4,6 +4,8 @@
  ***( see copyright.txt file at root folder )*******************************/
 
 #include <QPainter>
+#include <QPainterPath>
+#include <QRadialGradient>
 
 #include "ledrgb.h"
 #include "connector.h"
@@ -210,35 +212,104 @@ void LedRgb::setHidden( bool hid, bool hidArea, bool hidLabel )
     }
 }
 
+QRectF LedRgb::boundingRect() const
+{
+    static constexpr qreal pad = 10.0;
+    return QRectF( m_area.x()      - pad,
+                   m_area.y()      - pad,
+                   m_area.width()  + pad * 2,
+                   m_area.height() + pad * 2 );
+}
+
+QPainterPath LedRgb::shape() const
+{
+    QPainterPath path;
+    path.addRect( m_area );
+    return path;
+}
+
 void LedRgb::paint( QPainter* p, const QStyleOptionGraphicsItem* o, QWidget* w )
 {
     Component::paint( p, o, w );
+    p->setRenderHint( QPainter::Antialiasing, true );
 
-    QPen pen(Qt::black, 4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
-    QColor color;
+    const int   r = static_cast<int>( bright[0] );
+    const int   g = static_cast<int>( bright[1] );
+    const int   b = static_cast<int>( bright[2] );
+    const int   sum  = r + g + b;
+    const bool  isOn = sum > 90 && !m_crashed;   // floor is 15+15+15 = 45 when off
 
-    if( m_warning ) // Led overcurrent
+    const QRectF br      = boundingRect();
+    const QPointF cArea  = m_area.center();
+    const qreal bodyR    = qMin( m_area.width(), m_area.height() ) * 0.45;
+
+    const QColor base = m_crashed ? QColor(60, 50, 40)
+                                  : QColor(r, g, b);
+
+    // ---- Package outline (the rectangular footprint behind the lens) -----
+    p->setPen( QPen( QColor(40, 40, 40), 1.0 ) );
+    p->setBrush( QColor(20, 20, 20, 200) );
+    p->drawRoundedRect( m_area, 3, 3 );
+
+    // ---- Halo: radial gradient extending past the body when on ----------
+    if( isOn )
     {
-        p->setBrush( QColor( 255, 150, 0 ) );
-        color = QColor( Qt::red );
-        pen.setColor( color );
-    }
-    if( m_crashed )  // Led extreme overcurrent
-    {
-        p->setBrush( Qt::white );
-        color = QColor( Qt::white );
-        pen.setColor( color );
-    }else{
-        color = QColor( bright[0], bright[1], bright[2] );
-    }
-    p->setPen( pen );
-    p->drawRoundedRect( m_area, 2, 2 );
+        const qreal haloR = qMin( br.width(), br.height() ) / 2.0 - 1;
+        const qreal coreFrac = qBound( 0.18, bodyR / haloR, 0.40 );
 
-    pen.setColor( color );
-    pen.setWidth( 2 );
-    p->setPen( pen );
-    p->setBrush( color );
+        QColor core  = base; core .setAlpha( qMin( 235, 110 + sum / 3 ) );
+        QColor inner = base; inner.setAlpha( qMin( 170, 70  + sum / 4 ) );
+        QColor mid   = base; mid  .setAlpha( qMin( 90,  25  + sum / 9 ) );
+        QColor edge  = base; edge .setAlpha( 0 );
+
+        QRadialGradient halo( cArea, haloR );
+        halo.setColorAt( 0.0,             core );
+        halo.setColorAt( coreFrac,        inner );
+        halo.setColorAt( coreFrac + 0.28, mid );
+        halo.setColorAt( 1.0,             edge );
+
+        p->setPen( Qt::NoPen );
+        p->setBrush( halo );
+        p->drawEllipse( cArea, haloR, haloR );
+    }
+
+    // ---- Body: bright-centre gradient inside the lens ellipse -----------
+    QRadialGradient body( cArea + QPointF(-1, -1), bodyR );
+    if( m_crashed ){
+        body.setColorAt( 0.0, QColor(60, 50, 40) );
+        body.setColorAt( 1.0, QColor(20, 18, 15) );
+    }
+    else if( isOn ){
+        QColor hot(
+            qMin( 255, r + 110 ),
+            qMin( 255, g + 110 ),
+            qMin( 255, b + 110 ) );
+        body.setColorAt( 0.0, hot );
+        body.setColorAt( 0.5, base );
+        body.setColorAt( 1.0, base.darker( 145 ) );
+    }
+    else { // off — neutral dim package look (no per-channel identity since
+           // an off RGB LED has no "configured" colour to hint at)
+        body.setColorAt( 0.0, QColor(60, 60, 60) );
+        body.setColorAt( 0.6, QColor(35, 35, 35) );
+        body.setColorAt( 1.0, QColor(15, 15, 15) );
+    }
+    p->setBrush( body );
+    p->setPen( QPen( QColor(0, 0, 0, 180), 0.8 ) );
     p->drawEllipse( m_area );
+
+    // ---- Specular pip when on -------------------------------------------
+    if( isOn )
+    {
+        const qreal pipR  = bodyR * 0.25;
+        const QPointF pip = cArea + QPointF( -bodyR * 0.4, -bodyR * 0.4 );
+        QRadialGradient pipG( pip, pipR );
+        pipG.setColorAt( 0.0, QColor(255, 255, 255, 200) );
+        pipG.setColorAt( 1.0, QColor(255, 255, 255,   0) );
+        p->setPen( Qt::NoPen );
+        p->setBrush( pipG );
+        p->drawEllipse( pip, pipR, pipR );
+    }
 
     Component::paintSelected( p );
 }

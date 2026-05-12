@@ -56,7 +56,7 @@ Dht22::Dht22( QString type, QString id )
 
     m_inpin->setOutHighV( 5 );
 
-    m_font.setFamily("Ubuntu Mono");
+    m_font.setFamily("Roboto");
     m_font.setBold( true );
     m_font.setLetterSpacing( QFont::PercentageSpacing, 100 );
     setLabelPos(-28,-32, 0);

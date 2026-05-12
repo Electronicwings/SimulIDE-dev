@@ -11,6 +11,7 @@
 #include <QSettings>
 #include <QDebug>
 #include <QDrag>
+#include <QLineEdit>
 #include <QMenu>
 #include <QDir>
 
@@ -42,18 +43,28 @@ ComponentList::ComponentList( QWidget* parent )
 
     setDragEnabled( true );
     viewport()->setAcceptDrops( true );
+    viewport()->setCursor( Qt::OpenHandCursor );
+
+    // Keep keyboard focus on the search line edit — without this the tree
+    // grabs focus on show() and swallows keystrokes via its built-in
+    // keyboardSearch (default 400ms timeout), making chars never reach the
+    // line edit. Esc is handled in the global eventFilter, so the tree
+    // doesn't need focus for shortcut handling.
+    setFocusPolicy( Qt::NoFocus );
+    viewport()->setFocusPolicy( Qt::NoFocus );
 
     float scale = MainWindow::self()->fontScale();
-    setIndentation( 6*scale );
+    setIndentation( 12*scale );
     setRootIsDecorated( true );
-    setCursor( Qt::OpenHandCursor );
     headerItem()->setHidden( true );
-    setIconSize( QSize( 30*scale, 24*scale ));
+    setIconSize( QSize( 60*scale, 48*scale ));
 
     createList();
 
     connect( this, &ComponentList::itemPressed,
              this, &ComponentList::slotItemClicked );
+
+    qApp->installEventFilter( this );
 }
 ComponentList::~ComponentList(){}
 
@@ -443,6 +454,10 @@ void ComponentList::mousePressEvent( QMouseEvent* event )
     {
         slotContextMenu( event->pos() );
     }
+    else
+    {
+        QTreeWidget::mousePressEvent(event);
+    }
 }
 
 void ComponentList::slotItemClicked( QTreeWidgetItem* item, int  )
@@ -471,6 +486,45 @@ void ComponentList::dropEvent( QDropEvent* event )
     }
 }
 
+void ComponentList::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape) {
+        this->hide();
+        event->accept();
+        return;
+    }
+    QTreeWidget::keyPressEvent(event);
+}
+
+bool ComponentList::eventFilter( QObject* obj, QEvent* event )
+{
+    if( isVisible() )
+    {
+        if( event->type() == QEvent::MouseButtonPress )
+        {
+            QMouseEvent* me = static_cast<QMouseEvent*>(event);
+        #if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+            QPoint gp = me->globalPosition().toPoint();
+        #else
+            QPoint gp = me->globalPos();
+        #endif
+            // Use local-rect tests so this works for both a top-level
+            // popup and a child widget (geometry() differs in coord space).
+            bool inList = rect().contains( mapFromGlobal( gp ) );
+            QLineEdit* sb = MainWindow::self()->searchBar();
+            bool inSearch = sb && sb->isVisible()
+                         && sb->rect().contains( sb->mapFromGlobal( gp ) );
+            if( !inList && !inSearch ) hide();
+        }
+        else if( event->type() == QEvent::KeyPress )
+        {
+            QKeyEvent* ke = static_cast<QKeyEvent*>(event);
+            if( ke->key() == Qt::Key_Escape ){ hide(); return true; }
+        }
+    }
+    return QTreeWidget::eventFilter( obj, event );
+}
+
 void ComponentList::slotContextMenu( const QPoint& point )
 {
     QMenu menu;
@@ -496,28 +550,43 @@ void ComponentList::search( QString filter )
     QList<QTreeWidgetItem*>    cList = findItems( filter, Qt::MatchContains|Qt::MatchRecursive, 0 );
     QList<QTreeWidgetItem*> allItems = findItems( "", Qt::MatchContains|Qt::MatchRecursive, 0 );
 
+    // Pass 1: hide everything; save or restore each category's expanded state
     for( QTreeWidgetItem* item : allItems )
     {
         TreeItem* treeItem = (TreeItem*)item;
         treeItem->setHidden( true );
 
-        if( treeItem->childCount() > 0  )
+        if( treeItem->childCount() > 0 )
         {
             if( m_searchFilter.isEmpty() )                            // First search, update actual expanded state
                 treeItem->setItemExpanded( treeItem->isExpanded() );
             else treeItem->setExpanded( treeItem->isItemExpanded() ); // Don't setItemExpanded (keeps the original state)
-            continue;
         }
-        if( !cList.contains( item ) ) continue;
+    }
 
-        //bool hidden = treeItem->isItemHidden();
-        while( treeItem )
+    // Pass 2: unhide matched items, their ancestors, and (for category
+    // matches) their entire subtree so the category's components show too.
+    for( QTreeWidgetItem* item : cList )
+    {
+        if( !filter.isEmpty() && item->childCount() > 0 )
         {
-            treeItem->setHidden( false );
-            if( treeItem->childCount() > 0 /*&& !hidden*/ && !filter.isEmpty() )
-                treeItem->setExpanded( true );
+            QList<QTreeWidgetItem*> stack; stack << item;
+            while( !stack.isEmpty() )
+            {
+                QTreeWidgetItem* it = stack.takeLast();
+                it->setHidden( false );
+                if( it->childCount() > 0 ) it->setExpanded( true );
+                for( int i = 0; i < it->childCount(); ++i ) stack << it->child(i);
+            }
+        }
 
-            treeItem = treeItem->parentItem();
+        TreeItem* cur = (TreeItem*)item;
+        while( cur )
+        {
+            cur->setHidden( false );
+            if( cur->childCount() > 0 && !filter.isEmpty() )
+                cur->setExpanded( true );
+            cur = cur->parentItem();
         }
     }
     m_searchFilter = filter;

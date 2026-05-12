@@ -37,7 +37,7 @@ Meter::Meter( QString type, QString id )
     m_idLabel->setPos(-12,-24);
     setLabelPos(-24,-40, 0);
 
-    QFont font("Ubuntu Mono", 10, QFont::Bold );
+    QFont font("Roboto", 10, QFont::Bold );
     font.setPixelSize( 13 );
     m_display.setFont( font );
     m_display.setBrush( Qt::yellow );

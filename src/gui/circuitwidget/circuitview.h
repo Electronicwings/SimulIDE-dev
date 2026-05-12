@@ -9,6 +9,7 @@
 
 class Component;
 class Circuit;
+class Mcu;
 class SimuProp;
 class QPlainTextEdit;
 
@@ -44,7 +45,16 @@ class CircuitView : public QGraphicsView
         void dragMoveEvent( QDragMoveEvent* event ) override;
         void dragEnterEvent( QDragEnterEvent* event ) override;
         void dragLeaveEvent( QDragLeaveEvent* event ) override;
+        void dropEvent( QDropEvent* event ) override;
 
+    public:
+        // Open (or focus) an editor tab keyed to the MCU's id with the
+        // right extension/template, seed device/board on the editor's
+        // compiler, and reveal the editor pane. Static so non-CircuitView
+        // callers (Circuit::loadCircuit / Circuit::paste) can reuse it.
+        static void openEditorForMcu( Mcu* mcu, const QString& boardName );
+
+    private:
         void mousePressEvent( QMouseEvent* event ) override;
         void mouseMoveEvent( QMouseEvent *event ) override;
         void mouseReleaseEvent( QMouseEvent* event ) override;

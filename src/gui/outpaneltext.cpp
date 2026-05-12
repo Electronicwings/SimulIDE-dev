@@ -21,7 +21,7 @@ OutPanelText::OutPanelText( QWidget* parent )
     setPalette(p);
     
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setWeight( QFont::Thin );
     font.setFixedPitch(true);
     font.setPixelSize( 13*MainWindow::self()->fontScale() );

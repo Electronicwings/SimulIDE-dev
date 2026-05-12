@@ -29,6 +29,8 @@
 #include "linker.h"
 #include "tunnel.h"
 #include "currentwidget.h"
+#include "editorwindow.h"
+#include "circuitview.h"
 
 Circuit* Circuit::m_pSelf = nullptr;
 
@@ -183,9 +185,15 @@ void Circuit::loadCircuit( QString filePath )
 
     if( m_error != 0 ) clearCircuit();
     else{
-        m_graphicView->zoomToFit();
+        m_graphicView->zoomOne();
         qDebug() << "Circuit Loaded: ";
         qDebug() << filePath;
+
+        for( Component* c : m_compList ){
+            QString boardName;
+            if( Mcu* mcu = mcuFromComp( c, &boardName ) )
+                CircuitView::openEditorForMcu( mcu, boardName );
+        }
 }   }
 
 void Circuit::loadStrDoc( QString &doc )
@@ -605,8 +613,38 @@ void Circuit::removeItems()                     // Remove Selected items
     m_busy = false;
 }
 
+Mcu* Circuit::mcuFromComp( Component* comp, QString* boardNameOut )
+{
+    if( boardNameOut ) boardNameOut->clear();
+    if( !comp ) return nullptr;
+
+    if( Mcu* mcu = dynamic_cast<Mcu*>( comp ) ) return mcu;
+
+    if( SubCircuit* sub = dynamic_cast<SubCircuit*>( comp ) ){
+        Mcu* mcu = dynamic_cast<Mcu*>( sub->getMainComp() );
+        if( mcu && boardNameOut ) *boardNameOut = sub->getUid().split("-").first();
+        return mcu;
+    }
+    return nullptr;
+}
+
+QString Circuit::mcuSourcePath( Mcu* mcu, const QString& boardName )
+{
+    if( !mcu ) return QString();
+    const QString ext = boardName.isEmpty() ? mcu->defaultExtension()
+                                            : QStringLiteral(".ino");
+    return MainWindow::self()->getConfigPath("") + "/" + mcu->getUid() + ext;
+}
+
 void Circuit::removeComp( Component* comp )
 {
+    QString mcuTabPath;
+    if( !m_loading && !m_pasting && !m_deleting ){
+        QString boardName;
+        if( Mcu* mcu = mcuFromComp( comp, &boardName ) )
+            mcuTabPath = mcuSourcePath( mcu, boardName );
+    }
+
     m_compRemoved = false;
     comp->remove();
     if( !m_compRemoved ) return;
@@ -615,6 +653,18 @@ void Circuit::removeComp( Component* comp )
     removeItem( comp );
     m_compMap.remove( comp->getUid() );
     if( !m_removedComps.contains( comp ) ) m_removedComps.append( comp );
+
+    if( !m_loading && !m_pasting && !m_deleting )
+    {
+        if( !mcuTabPath.isEmpty() && EditorWindow::self() )
+            EditorWindow::self()->closeFileTab( mcuTabPath );
+
+        bool hasMcu = false;
+        for( Component* c : m_compList )
+            if( mcuFromComp( c ) ){ hasMcu = true; break; }
+
+        if( !hasMcu ) MainWindow::self()->hideEditor();
+    }
 }
 
 void Circuit::removeNode( Node* node )
@@ -910,6 +960,12 @@ void Circuit::paste( QPointF eventpoint )
 
     m_pasting = false;
     m_busy = false;
+
+    for( Component* c : m_compList ){
+        QString boardName;
+        if( Mcu* mcu = mcuFromComp( c, &boardName ) )
+            CircuitView::openEditorForMcu( mcu, boardName );
+    }
 }
 
 void Circuit::newconnector( Pin* startpin, bool save )
@@ -1183,8 +1239,8 @@ void Circuit::drawBackground( QPainter* painter, const QRectF &rect )
     painter->drawRect( m_scenerect );
     return;*/
 
-    painter->fillRect( m_scenerect, QColor( 240, 240, 210 ) );
-    painter->setPen( QColor( 210, 210, 210 ) );
+    painter->fillRect( m_scenerect, QColor( 248, 248, 248 ) );
+    painter->setPen( QColor( 230, 230, 230 ) );
 
     if( m_hideGrid ) return;
 

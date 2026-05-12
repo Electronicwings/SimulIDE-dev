@@ -44,7 +44,7 @@ void TreeItem::setItemType( treItemType_t itemType )
         if( m_isCustom ) setForeground( 0, QColor( 80, 90, 110 ) );
         else             setForeground( 0, QColor( 100, 90, 60 ) );
 
-        font.setPixelSize( 11*scale );
+        font.setPixelSize( 13*scale );
     }
     else   // Is Category
     {
@@ -55,26 +55,26 @@ void TreeItem::setItemType( treItemType_t itemType )
         {
             if( m_isCustom ){
                 setForeground( 0, QColor( 50, 60, 80 ) );
-                setBackground( 0, QBrush(QColor(220, 235, 240)) );
+                setBackground( 0, QBrush(QColor(208,208,208)) );
             }else{
                 setForeground( 0, QColor( 75, 70, 10 ) );
-                setBackground( 0, QBrush(QColor(220, 240, 235)) );
+                setBackground( 0, QBrush(QColor(208,208,208)) );
             }
             setSizeHint( 0, QSize(100, 30*scale) );
-            font.setPixelSize( 13*scale );
+            font.setPixelSize( 15*scale );
         }
         else if( itemType == categ_CHILD )
         {
             if( m_isCustom ){
                 setForeground( 0, QColor( 70, 80, 100 ) );
-                setBackground( 0, QBrush(QColor( 230, 245, 250)) );
+                // setBackground( 0, QBrush(QColor( 230, 245, 250)) );
             }else{
                 setForeground( 0, QColor( 90, 80, 50 ) );
-                setBackground( 0, QBrush(QColor( 230, 250, 245)) );
+                // setBackground( 0, QBrush(QColor( 230, 250, 245)) );
             }
             if( icon( 0 ).isNull() ) setSizeHint( 0, QSize(100, 16*scale) );
             else                     setSizeHint( 0, QSize(100, 20*scale) );
-            font.setPixelSize( 12*scale );
+            font.setPixelSize( 14*scale );
         }
     }
     setFont( 0, font );

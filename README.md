@@ -207,6 +207,12 @@ Resetup environment from *Set up the build environment* step in case of new sess
 export PATH=$HOME/qtinstall/bin:$PATH
 ```
 
+```
+# warm cache once
+rm -rf "$EMSDK/upstream/emscripten/cache"
+../scripts/warm-emcc-cache.sh
+```
+
 (Adjust the path if you used a different `-prefix` when configuring Qt.)
 
 Then go into the build directory and run qmake + gmake:
@@ -266,3 +272,90 @@ git submodule foreach --recursive "git clean -dfx" && git clean -dfx
 
 Then re-apply the patch (*Apply the WASM/ASYNCIFY patch* section) and
 continue from *Set up the build environment*.
+
+## Building binutils of avr for wasm
+
+Required tools for debugging of AVR family MCU's
+
+### Get the binutil source
+
+Go to one folder back of this simulIDE root directoy ( path is used in pri file which is case sensitive, so follow as it is ). download and extract the binutil source
+
+```
+wget https://ftp.gnu.org/gnu/binutils/binutils-2.46.0.tar.zst
+tar -xzf binutils-2.46.0.tar.zst
+```
+
+comment our few sections which may obstacle in building process of binutils in wasm
+
+```
+cd /home/ewings/workspace/simulationwork/binutils-2.46.0/libiberty
+
+for f in \
+    strstr.c strchr.c strrchr.c strdup.c strndup.c \
+    strncmp.c strncasecmp.c strcasecmp.c \
+    strerror.c strsignal.c strtol.c strtoul.c strtoll.c strtoull.c \
+    memcmp.c memcpy.c memmove.c memset.c memchr.c mempcpy.c \
+    bcmp.c bcopy.c bzero.c \
+    index.c rindex.c getcwd.c getpagesize.c \
+    atexit.c setenv.c putenv.c \
+    snprintf.c vsnprintf.c asprintf.c vasprintf.c \
+    sigsetmask.c waitpid.c \
+    pex-unix.c pex-common.c pex-one.c
+do
+    [ -f "$f" ] || continue
+    [ -f "$f.orig" ] || cp "$f" "$f.orig"
+    echo "/* stubbed for wasm build — provided by emscripten libc */" > "$f"
+done
+
+
+
+cd /home/ewings/workspace/simulationwork/binutils-2.46.0/gas    
+
+for f in \
+    strstr.c strchr.c strrchr.c strdup.c strndup.c \
+    strncmp.c strncasecmp.c strcasecmp.c messages.c \
+    strerror.c strsignal.c strtol.c strtoul.c strtoll.c strtoull.c \
+    memcmp.c memcpy.c memmove.c memset.c memchr.c mempcpy.c \
+    bcmp.c bcopy.c bzero.c \
+    index.c rindex.c getcwd.c getpagesize.c \
+    atexit.c setenv.c putenv.c \
+    snprintf.c vsnprintf.c asprintf.c vasprintf.c \
+    sigsetmask.c waitpid.c \
+    pex-unix.c pex-common.c pex-one.c
+do
+    [ -f "$f" ] || continue
+    [ -f "$f.orig" ] || cp "$f" "$f.orig"
+    echo "/* stubbed for wasm build — provided by emscripten libc */" > "$f"
+done
+
+```
+then follow * Set up the build environment * section for environement and below command to configure.
+
+```
+cd <parent directory of simulIDE> && mkdir binutils-avr-wasm-build && cd binutils-avr-wasm-build
+
+emconfigure ../binutils-2.46.0/configure \
+    --target=avr \
+    --host=wasm32-unknown-emscripten \
+    --prefix="$PWD/install" \
+    --disable-shared --enable-static --disable-werror --disable-nls \
+    --disable-gdb --disable-sim --disable-readline --disable-libdecnumber \
+    --without-mpfr --without-mpc --without-gmp \
+    --without-zstd --without-zlib --without-isl --disable-plugins \
+    CFLAGS="-O2 -fno-exceptions -pthread -D_GNU_SOURCE \
+            -include limits.h -include unistd.h -include fcntl.h \
+            -include string.h -include stdint.h -include sys/wait.h \
+            -Wno-error=implicit-function-declaration \
+            -Wno-error=int-conversion" \
+    CXXFLAGS="-O2 -fno-exceptions -pthread -D_GNU_SOURCE" \
+    LDFLAGS="-pthread"
+
+```
+
+now build it with 
+
+```
+emmake make all-bfd all-opcodes all-libiberty all-binutils
+```
+

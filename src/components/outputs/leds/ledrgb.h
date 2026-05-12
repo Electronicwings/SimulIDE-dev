@@ -51,6 +51,12 @@ class LedRgb : public Component, public eElement
         
         virtual void paint( QPainter* p, const QStyleOptionGraphicsItem* o, QWidget* w ) override;
 
+        // Padded boundingRect leaves room for the radial halo to fade
+        // out without being clipped. shape() stays tight to m_area so
+        // the halo doesn't swallow clicks near the pin leads.
+        QRectF boundingRect() const override;
+        QPainterPath shape() const override;
+
     private:
         void createMatrix();
         void deleteMatrix();

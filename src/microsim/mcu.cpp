@@ -12,6 +12,7 @@
 #include <QSettings>
 
 #include "mcu.h"
+#include "mcutemplates.h"
 #include "cpu8bits.h"
 #include "mcuport.h"
 #include "mcupin.h"
@@ -545,7 +546,15 @@ bool Mcu::load( QString fileName )
         qDebug() << "Error: file doesn't exist:\n"<<cleanPathAbs<<"\n";
         return false;
     }
-    if( Simulator::self()->simState() > SIM_STARTING )  CircuitWidget::self()->powerCircOff();
+    // Power-off-on-load is unsafe when the sim is running because the PC
+    // would suddenly point into freshly-rewritten flash. But during a
+    // debug-init upload (WASM remote-build is async, so the firmware
+    // arrives AFTER the sim has already entered the paused-debug state)
+    // we want to keep the debug context — the sim is paused at PC=0 and
+    // the user is about to step. Skip the power-off in that case.
+    const bool inDebug = m_eMcu.isDebugging();
+    if( Simulator::self()->simState() > SIM_STARTING && !inDebug )
+        CircuitWidget::self()->powerCircOff();
 
     int size = m_eMcu.flashSize();
     QVector<int> pgm( size );
@@ -782,4 +791,14 @@ void Mcu::paint( QPainter* p, const QStyleOptionGraphicsItem* option, QWidget* w
         if( m_width == m_height ) p->drawRoundedRect( 4, 4, 4, 4 , 2, 2);
         else                      p->drawRoundedRect( m_area.width()/2-2, -1, 4, 4 , 2, 2);
 }   }
+
+QString Mcu::defaultExtension() const
+{
+    return ".cpp"; // Raw MCU default; Arduino-style boards override to ".ino"
+}
+
+QString Mcu::templateContent() const
+{
+    return QString::fromUtf8( McuTemplates::genericMain );
+}
 

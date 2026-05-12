@@ -1,6 +1,6 @@
 
 VERSION = "2.0.0"
-RELEASE = ""
+RELEASE = "i1"
 
 TEMPLATE = app
 TARGET = simulide
@@ -11,6 +11,13 @@ QT += widgets
 QT += network
 !wasm: QT += concurrent
 !wasm: QT += serialport
+
+# Compile-time toggle: hide non-essential menu/toolbar actions and the
+# Libraries / Files sidebar tabs. Used by the WASM-targeted distribution
+# where local file browsing and component-library management aren't
+# applicable. To restore the full UI, comment this out (or wrap it in a
+# `wasm { ... }` block to make it WASM-only).
+DEFINES += HIDE_SOME_ACTIONS
 QT += multimedia widgets
 
 SOURCES      = $$files( $$PWD/src/*.cpp, true )
@@ -31,6 +38,19 @@ wasm {
     # Embed component data in the WASM package; applicationDirPath() returns "/" on WASM,
     # so SimulIDE looks for "/data".
     QMAKE_LFLAGS += --preload-file $$PWD/resources/data@/data
+
+    # Enable emscripten_fetch (used by Compiler::remoteCompile to bypass
+    # QNetworkAccessManager — under Qt 5.15 + ASYNCIFY, QNAM holds the
+    # WASM stack suspended and the finished signal never fires even when
+    # the HTTP response (200 OK) is already in hand. emscripten_fetch is
+    # truly callback-driven and avoids the trap.
+    QMAKE_LFLAGS += -s FETCH=1
+
+    # Same-origin JavaScript control bridge (src/wasm/jsbridge.{h,cpp}).
+    # The bridge is exposed to JS via embind so a parent web page can call
+    # iframe.contentWindow.Module.SimulIDEBridge.instance().<method>().
+    INCLUDEPATH  += $$PWD/src/wasm
+    QMAKE_LFLAGS += --bind
 }
 TRANSLATIONS = $$files( $$PWD/resources/translations/*.ts )
 FORMS       += $$files( $$PWD/src/*.ui, true )
@@ -121,6 +141,21 @@ wasm {
     QMAKE_LFLAGS    += -s USE_ZLIB=1
 }
 
+wasm {
+    BINUTILS_BUILD = $$PWD/../binutils-avr-wasm-build
+    BINUTILS_SRC   = $$PWD/../binutils-2.46.0
+
+    INCLUDEPATH += $$BINUTILS_BUILD/bfd \
+                   $$BINUTILS_SRC/include
+
+    LIBS += -L$$BINUTILS_BUILD/opcodes/.libs   -lopcodes \
+            -L$$BINUTILS_BUILD/bfd/.libs       -lbfd     \
+            -L$$BINUTILS_BUILD/libiberty       -liberty  \
+            -lz
+
+    DEFINES += SIM_HAS_LIBBFD
+}
+
 win32 {
     OS = Windows
     QMAKE_LIBS += -lwsock32
@@ -186,6 +221,32 @@ runLrelease.commands = \
 
 QMAKE_EXTRA_TARGETS += runLrelease
 PRE_TARGETDEPS      += runLrelease
+
+# Deploy custom WASM files (for WASM builds only)
+# This ensures our custom wasm_shell.html and qtloader.js are used instead of Qt's defaults
+# ALL generated files are versioned with build date/revision to enable cache-busting on deployment
+wasm {
+    # Create versioned filenames for cache-busting: TARGET_v2.0.0-i1_12-05-26
+    WASM_VERSION_SUFFIX = _v$$VERSION-$$RELEASE
+    WASM_BUILD_SUFFIX = $$system($(which date) +%y%m%d)
+    WASM_FILE_SUFFIX = $$WASM_VERSION_SUFFIX$$WASM_BUILD_SUFFIX
+    WASM_MODULE_NAME = $$TARGET$$WASM_FILE_SUFFIX
+    QTLOADER_VERSIONED = qtloader$${WASM_FILE_SUFFIX}.js
+    
+    # Post-link command to deploy and version all WASM files:
+    # 1. Replace @APPNAME@ with versioned module name (e.g., TARGET_v2.0.0-i1_12-05-26)
+    # 2. Replace @QTLOADER@ with versioned qtloader filename
+    # 3. Rename $$TARGET.js → TARGET_v2.0.0-i1_12-05-26.js
+    # 4. Rename $$TARGET.wasm → TARGET_v2.0.0-i1_12-05-26.wasm
+    # 5. Copy qtloader.js with version suffix
+    QMAKE_POST_LINK = sed -e s/@APPNAME@/$$WASM_MODULE_NAME/g -e s/@QTLOADER@/$$QTLOADER_VERSIONED/g $$shell_quote($$PWD/wasm_shell.html) > $$shell_quote($$TARGET_PREFIX/$${TARGET}.html) ; \
+                     sed -e s/$${TARGET}\.data/$${WASM_MODULE_NAME}\.data/g $$shell_quote($$TARGET_PREFIX/$${TARGET}.js) > $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.js) ; \
+                     $(MOVE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.wasm) $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.wasm) ; \
+                     $(MOVE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.data) $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.data) ; \
+                     $(COPY_FILE) $$shell_quote($$PWD/qtloader.js) $$shell_quote($$TARGET_PREFIX/$$QTLOADER_VERSIONED); \
+                     $(DEL_FILE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.js) ; \
+                     $(DEL_FILE) $$shell_quote($$TARGET_PREFIX/qtloader.js) ;
+}
 
 message( "-----------------------------------")
 message( "    "                               )

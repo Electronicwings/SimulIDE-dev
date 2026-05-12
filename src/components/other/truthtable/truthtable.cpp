@@ -52,7 +52,7 @@ void TruthTable::setup( QString inputs, QString outputs, std::vector<uint> truth
     float scale = MainWindow::self()->fontScale();
     int fontSize = round(13*scale);
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setBold( true );
     font.setPixelSize( fontSize );
 

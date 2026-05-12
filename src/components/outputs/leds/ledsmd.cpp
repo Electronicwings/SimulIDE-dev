@@ -24,10 +24,13 @@ LedSmd::~LedSmd(){}
 
 void LedSmd::drawBackground( QPainter* p )
 {
+    // Body shape — gets filled with the radial gradient brush LedBase::paint
+    // sets up before calling us.
     p->drawRoundedRect( m_area, 0, 0);
 }
 
-void LedSmd::drawForeground( QPainter* p )
+void LedSmd::drawForeground( QPainter* /*p*/ )
 {
-    p->drawRoundedRect( m_area, 0, 0 );
+    // Intentionally empty: redrawing the same rect with the flat foreColor
+    // brush would overwrite the gradient body painted in drawBackground.
 }

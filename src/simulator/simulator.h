@@ -94,6 +94,7 @@ class Simulator : public QObject
         inline void notCorverged() { m_converged = false; }
 
         void addToEnodeList( eNode* nod );
+        QList<eNode*>* getENodeList() { return &m_eNodeList; }
 
         void addToElementList( eElement* el );
         void remFromElementList( eElement* el );

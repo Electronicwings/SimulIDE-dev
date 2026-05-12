@@ -101,6 +101,10 @@ class Circuit : public QGraphicsScene
         Component* createComponent( QString type, QString name, QPoint pos, bool map=true );
         void addComponent( Component* comp );
 
+        // MCU source-file resolution (used by drop, remove, and the editor)
+        static class Mcu* mcuFromComp( Component* comp, QString* boardNameOut = nullptr );
+        static QString mcuSourcePath( class Mcu* mcu, const QString& boardName );
+
         void addNode( Node* node );
 
         QList<Component*>* compList() { return &m_compList; }

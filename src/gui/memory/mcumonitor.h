@@ -14,6 +14,7 @@ class eMcu;
 class MemTable;
 class RamTable;
 class Watcher;
+class DisAsmTable;
 
 class MCUMonitor : public QDialog, private Ui::McuMonitor
 {
@@ -45,6 +46,7 @@ class MCUMonitor : public QDialog, private Ui::McuMonitor
         MemTable* m_ramMonitor;
         MemTable* m_flashMonitor;
         MemTable* m_romMonitor;
+        DisAsmTable* m_disAsm;
 
         QTableWidget m_status;
         QTableWidget m_pc;

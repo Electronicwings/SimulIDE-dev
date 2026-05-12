@@ -26,7 +26,7 @@ ValueWidget::ValueWidget( QString name, QString type, QString unit, Watched* cor
     int valueWidth = round(120*scale);
 
     QFont font;
-    font.setFamily("Ubuntu Mono");
+    font.setFamily("Roboto");
     font.setBold( true );
     font.setPixelSize( fontSize );
 

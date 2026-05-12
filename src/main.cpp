@@ -14,6 +14,10 @@
 #include "editorwindow.h"
 #include "batchtest.h"
 
+#ifdef __EMSCRIPTEN__
+#include "wasmtooltipfilter.h"
+#endif
+
 void myMessageOutput( QtMsgType type, const QMessageLogContext &context, const QString &msg )
 {
     QByteArray localMsg = msg.toLocal8Bit();
@@ -68,6 +72,13 @@ int main( int argc, char *argv[] )
 #endif
 
     QApplication app( argc, argv );
+
+#ifdef __EMSCRIPTEN__
+    // Workaround for Qt 5.15 + WASM tooltip auto-hide flakiness: re-show
+    // tooltips with an explicit duration so they don't vanish on every
+    // pointer-move event the browser relays.
+    app.installEventFilter( new WasmTooltipFilter( &app ) );
+#endif
 
     QSettings settings( QStandardPaths::standardLocations( QStandardPaths::AppDataLocation).first()+"/simulide.ini",  QSettings::IniFormat, 0l );
 
