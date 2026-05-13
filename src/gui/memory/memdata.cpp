@@ -62,7 +62,8 @@ bool MemData::loadData( QVector<int>* toData, bool resize, int bits,
                 if( onDone ) onDone( false );
                 return;
             }
-            QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            // QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            QString tmp = MainWindow::self()->getTempPath( QFileInfo( fileName ).fileName() );
             QFile f( tmp );
             bool ok = false;
             if( f.open( QIODevice::WriteOnly ) ){

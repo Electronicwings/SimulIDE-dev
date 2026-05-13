@@ -142,8 +142,8 @@ wasm {
 }
 
 wasm {
-    BINUTILS_BUILD = $$PWD/../binutils-avr-wasm-build
-    BINUTILS_SRC   = $$PWD/../binutils-2.46.0
+    BINUTILS_BUILD = $$PWD/../../dependencies/binutils-avr/binutils-avr-wasm-build
+    BINUTILS_SRC   = $$PWD/../../dependencies/binutils-avr/binutils-2.46.0
 
     INCLUDEPATH += $$BINUTILS_BUILD/bfd \
                    $$BINUTILS_SRC/include

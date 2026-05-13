@@ -138,6 +138,7 @@ class Compiler : public QObject, public CompBase
         // entering a nested QEventLoop (which corrupts ASYNCIFY state and
         // crashes the wasm module with "memory access out of bounds").
         bool m_remoteBusy = false;
+        QString m_hexPath = "";
 
         // One-shot: when true, the async build-finished lambda calls
         // upload() after writing the fresh hex. Used by EditorWindow::

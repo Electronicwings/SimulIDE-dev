@@ -76,6 +76,7 @@ class MainWindow : public QMainWindow
 
         QString getHelp( QString name, bool save=true );
 
+        QString getTempPath( QString file );            // Get file path in tmp folder
         QString getConfigPath( QString file );            // Get file path in config folder
         QString getDataFilePath( QString file );          // Get file path in data folder, first user folder, if not SimulIDE folder
         QString getCircFilePath( QString file );          // Get file path in circuit folder
@@ -117,6 +118,7 @@ class MainWindow : public QMainWindow
         int m_autoUpdt;
 
         QDir m_configDir;
+        QDir m_tempDir;
 
         QSettings* m_settings;
         QSettings* m_compSettings;

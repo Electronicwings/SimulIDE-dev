@@ -46,9 +46,11 @@ MainWindow::MainWindow()
 
 #ifdef __EMSCRIPTEN__
     // WASM has no host filesystem we can write to outside /tmp.
-    m_configDir.setPath( QStandardPaths::writableLocation( QStandardPaths::TempLocation ) );
+    m_configDir.setPath( QStandardPaths::writableLocation( QStandardPaths::AppDataLocation ) );
+    m_tempDir.setPath( QStandardPaths::writableLocation( QStandardPaths::TempLocation ) );
 #else
     m_configDir.setPath( QStandardPaths::writableLocation( QStandardPaths::AppDataLocation ) );
+    m_tempDir.setPath( QStandardPaths::writableLocation( QStandardPaths::TempLocation ) );
 #endif
 
     m_settings     = new QSettings( getConfigPath("simulide.ini"), QSettings::IniFormat, this );
@@ -522,6 +524,11 @@ void MainWindow::setUserPath( QString path )
     if( !QFileInfo::exists( path ) ) return;
     m_settings->setValue("120userPath", path);
     m_userDir = path;
+}
+
+QString MainWindow::getTempPath( QString file )
+{
+    return m_tempDir.absoluteFilePath( file );
 }
 
 QString MainWindow::getConfigPath( QString file )

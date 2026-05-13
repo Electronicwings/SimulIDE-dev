@@ -392,7 +392,8 @@ void WaveGen::slotLoad()
         [this]( const QString& fileName, const QByteArray& content )
         {
             if( fileName.isEmpty() ) return;
-            QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            // QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
+            QString tmp = MainWindow::self()->getTempPath( QFileInfo( fileName ).fileName() );
             QFile f( tmp );
             if( !f.open( QIODevice::WriteOnly ) ){
                 qDebug() << "WaveGen::slotLoad: cannot stage" << tmp;

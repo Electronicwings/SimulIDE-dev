@@ -25,6 +25,7 @@
 #include "meter.h"
 #include "probe.h"
 #include "freqmeter.h"
+#include "mainwindow.h"
 
 // Sources
 #include "fixedvolt.h"
@@ -72,7 +73,8 @@ bool SimulIDEBridge::setCircuit( const std::string& sim2Xml )
     // we get exactly the same parse path and side effects (recent-files,
     // backup file, etc.). A future cleanup could refactor loadCircuit() to
     // accept a string and skip this step.
-    const QString tmpPath = "/tmp/parent_circuit.sim2";
+    // const QString tmpPath = "/tmp/parent_circuit.sim2";
+    const QString tmpPath = MainWindow::self()->getTempPath( "parent_circuit.sim2" );
     QFile f( tmpPath );
     if( !f.open( QIODevice::WriteOnly | QIODevice::Text ) ){
         emitError( std::string("setCircuit: cannot stage XML at ")
@@ -123,7 +125,8 @@ bool SimulIDEBridge::setSketch( const std::string& source )
     }
 
     const QString ext  = Mcu::self()->defaultExtension();
-    const QString path = QString( "/tmp/parent_sketch" ) + ext;
+    // const QString path = QString( "/tmp/parent_sketch" ) + ext;
+    const QString path = MainWindow::self()->getTempPath( "parent_sketch" + ext );
     QFile f( path );
     if( !f.open( QIODevice::WriteOnly | QIODevice::Text ) ){
         emitError( std::string("setSketch: cannot stage source at ")

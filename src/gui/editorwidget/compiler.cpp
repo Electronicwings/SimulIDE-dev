@@ -405,7 +405,7 @@ int Compiler::remoteCompile( bool debug )
 
     m_remoteBusy = true;
     emscripten_fetch( &attr,
-        "/compile/arduino" );
+        "/esa-api/compile/arduino" );
         // "http://ewskills.local/simulation/arduino/compile" );
 
     return 0; // dispatched
@@ -454,6 +454,7 @@ void Compiler::handleRemoteBuildResponse( const QByteArray& respBody,
                     out.close();
                     m_outPane->appendLine( QString( "Build OK: %1 bytes -> %2" )
                                                .arg( hexBytes.size() ).arg( tmpHex ) );
+                    m_hexPath = tmpHex;
                     compiled( tmpHex );
                     buildOk = true;
                 }
@@ -650,6 +651,7 @@ void Compiler::downloadZippedBuild( const QString& downloadUrl, const QString& t
                 const QString extractdir = MainWindow::self()->getConfigPath("");
                 bool extractok = guard->extractZippedBuild(tmpZipPath, extractdir);
                 if(extractok){
+                    guard->compiled( guard->m_hexPath );
                     guard->upload();
                 }
             } else {

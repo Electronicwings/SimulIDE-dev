@@ -504,7 +504,8 @@ void Mcu::slotLoad()
         {
             if( fileName.isEmpty() ) return; // user cancelled
 
-            QString tmpPath = "/tmp/" + QFileInfo( fileName ).fileName();
+            // QString tmpPath = "/tmp/" + QFileInfo( fileName ).fileName();
+            QString tmpPath = MainWindow::self()->getTempPath( QFileInfo( fileName ).fileName() );
             QFile f( tmpPath );
             if( !f.open( QIODevice::WriteOnly ) ){
                 qDebug() << "Mcu::slotLoad: cannot stage firmware at" << tmpPath;

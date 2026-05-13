@@ -283,13 +283,13 @@ Go to one folder back of this simulIDE root directoy ( path is used in pri file 
 
 ```
 wget https://ftp.gnu.org/gnu/binutils/binutils-2.46.0.tar.zst
-tar -xzf binutils-2.46.0.tar.zst
+tar -I zstd -xf binutils-2.46.0.tar.zst
 ```
 
 comment our few sections which may obstacle in building process of binutils in wasm
 
 ```
-cd /home/ewings/workspace/simulationwork/binutils-2.46.0/libiberty
+cd <path-to-binutils-2.46.0>/libiberty
 
 for f in \
     strstr.c strchr.c strrchr.c strdup.c strndup.c \
@@ -310,7 +310,7 @@ done
 
 
 
-cd /home/ewings/workspace/simulationwork/binutils-2.46.0/gas    
+cd <path-to-binutils-2.46.0>/gas    
 
 for f in \
     strstr.c strchr.c strrchr.c strdup.c strndup.c \
@@ -330,7 +330,9 @@ do
 done
 
 ```
+
 then follow * Set up the build environment * section for environement and below command to configure.
+
 
 ```
 cd <parent directory of simulIDE> && mkdir binutils-avr-wasm-build && cd binutils-avr-wasm-build
@@ -338,7 +340,7 @@ cd <parent directory of simulIDE> && mkdir binutils-avr-wasm-build && cd binutil
 emconfigure ../binutils-2.46.0/configure \
     --target=avr \
     --host=wasm32-unknown-emscripten \
-    --prefix="$PWD/install" \
+    --prefix="$PWD/binutils-install" \
     --disable-shared --enable-static --disable-werror --disable-nls \
     --disable-gdb --disable-sim --disable-readline --disable-libdecnumber \
     --without-mpfr --without-mpc --without-gmp \

@@ -172,7 +172,8 @@ void LaWidget::on_exportData_clicked()
     if( defName.isEmpty() )         defName = "analizer.vcd";
     if( !defName.endsWith(".vcd") ) defName += ".vcd";
 
-    QString tmp = "/tmp/" + defName;
+    // QString tmp = "/tmp/" + defName;
+    QString tmp = MainWindow::self()->getTempPath( defName );
     m_analizer->dumpData( tmp );
 
     QFile f( tmp );
