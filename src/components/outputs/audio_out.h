@@ -5,13 +5,21 @@
 
 #pragma once
 
+#include <QtGlobal>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QAudioOutput>
+#include <QAudioDeviceInfo>
+#else
+#include <QAudioSink>
+#include <QAudioDevice>
+#include <QMediaDevices>
+#endif
+#include <QAudioFormat>
 
 #include "e-resistor.h"
 #include "component.h"
 
 class LibraryItem;
-class QAudioSink;
 
 class AudioOut : public Component, public eResistor
 {
@@ -44,10 +52,15 @@ class AudioOut : public Component, public eResistor
         void updtProperties();
 
     private:
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         QAudioDeviceInfo m_deviceinfo;
+        QAudioOutput*    m_audioOutput;
+#else
+        QAudioDevice     m_deviceinfo;
+        QAudioSink*      m_audioOutput;
+#endif
         QAudioFormat     m_format;
 
-        QAudioOutput* m_audioOutput;
         QIODevice*    m_audioBuffer;
         QByteArray    m_dataBuffer;
 

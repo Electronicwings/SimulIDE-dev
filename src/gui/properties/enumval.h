@@ -26,7 +26,11 @@ class EnumVal : public PropVal, private Ui::EnumVal
 
     public slots:
         void on_showVal_toggled( bool checked );
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         void on_valueBox_currentIndexChanged( QString val );
+#else
+        void on_valueBox_currentIndexChanged( int index );
+#endif
 
     protected:
         QStringList m_enums;

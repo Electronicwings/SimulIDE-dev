@@ -78,11 +78,26 @@ CircuitWidget::CircuitWidget( QWidget *parent  )
     //m_panelSplitter->addWidget( m_infoWidget );
     m_panelSplitter->addWidget( topWidget );
     m_panelSplitter->addWidget( &m_outPane );
-    m_panelSplitter->setSizes( {250, 500} );
+    // Start with the out-pane collapsed; user can drag the splitter handle
+    // to reveal it. Using width 0 (not hide()) keeps the handle visible.
+    m_panelSplitter->setSizes( {750, 0} );
+
+    // m_outPane is a QPlainTextEdit which has a built-in minimumSizeHint
+    // of ~100px tall. setMinimumHeight(0) alone isn't enough — Qt's layout
+    // uses max(minimumSize, minimumSizeHint), so we also need verticalPolicy
+    // = Ignored so qSmartMinSize bypasses the size hint contribution.
+    QSizePolicy outPanePolicy = m_outPane.sizePolicy();
+    outPanePolicy.setVerticalPolicy( QSizePolicy::Ignored );
+    m_outPane.setSizePolicy( outPanePolicy );
+    m_outPane.setMinimumHeight( 0 );
+    topWidget->setMinimumHeight( 0 );
+    m_panelSplitter->setMinimumHeight( 0 );
 
     m_mainSplitter->addWidget( &m_circView );
     m_mainSplitter->addWidget( m_panelSplitter );
-    m_mainSplitter->setSizes( {500, 170} );
+    m_mainSplitter->setCollapsible( 0, false ); // never collapse the circuit view
+    m_mainSplitter->setCollapsible( 1, true );  // panel can shrink to nothing
+    m_mainSplitter->setSizes( {500, 20} );
 
     QFont font( MainWindow::self()->defaultFontName(), 10, QFont::Bold );
     double scale = MainWindow::self()->fontScale();

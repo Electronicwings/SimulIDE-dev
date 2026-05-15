@@ -199,7 +199,11 @@ QString fileToString( QString fileName, QString caller )
         return "";
     }
     QTextStream in(&file);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     in.setCodec("UTF-8");
+#else
+    in.setEncoding(QStringConverter::Utf8);
+#endif
     QString text = in.readAll();
     file.close();
 

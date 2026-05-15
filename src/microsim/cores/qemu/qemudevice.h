@@ -117,7 +117,9 @@ class QemuDevice : public Chip
 
         void* m_wHandle;
 
+#ifndef __EMSCRIPTEN__
         QProcess m_qemuProcess;
+#endif
         QStringList m_arguments;
 
         uint8_t m_portN;

@@ -183,7 +183,7 @@ void RamTable::loadVarSet()
         [this]( const QString& fileName, const QByteArray& content )
         {
             if( fileName.isEmpty() ) return;
-            QStringList varSet = QString::fromUtf8( content ).split( '\n', QString::SkipEmptyParts );
+            QStringList varSet = QString::fromUtf8( content ).split( '\n', Qt::SkipEmptyParts );
             if( !varSet.isEmpty() ) loadVarSet( varSet );
         });
 #else

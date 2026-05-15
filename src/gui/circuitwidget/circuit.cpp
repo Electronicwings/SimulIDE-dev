@@ -53,8 +53,8 @@ Circuit::Circuit( int width, int height, CircuitView* parent )
     m_undo       = false;
     m_redo       = false;
     m_changed    = false;
-    m_animateLogic = false;
-    m_animateCurr = false;
+    m_animateLogic = true;
+    m_animateCurr = true;
     m_ansiSymbols = false;
     m_pasting    = false;
     m_deleting   = false;
@@ -484,7 +484,11 @@ bool Circuit::saveString( QString fileName, QString doc )
         return false;
     }
     QTextStream out( &file );
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     out.setCodec("UTF-8");
+#else
+    out.setEncoding(QStringConverter::Utf8);
+#endif
     out << doc;
     file.close();
 
@@ -1239,7 +1243,7 @@ void Circuit::drawBackground( QPainter* painter, const QRectF &rect )
     painter->drawRect( m_scenerect );
     return;*/
 
-    painter->fillRect( m_scenerect, QColor( 248, 248, 248 ) );
+    // painter->fillRect( m_scenerect, QColor( 248, 248, 248 ) );
     painter->setPen( QColor( 230, 230, 230 ) );
 
     if( m_hideGrid ) return;

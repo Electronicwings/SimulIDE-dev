@@ -14,10 +14,12 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QPointer>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QMetaObject>
+#include <QSet>
 #include <emscripten/fetch.h>
 #include <emscripten/val.h>
 #include <string.h>
@@ -44,7 +46,9 @@ using emscripten::val;
 Compiler::Compiler( CodeEditor* editor, OutPanelText* outPane )
         : QObject( editor )
         , CompBase( "Compiler", "" )
+#ifndef __EMSCRIPTEN__
         , m_compProcess( this )
+#endif
 {
     m_editor = editor;
     m_outPane = outPane;
@@ -363,6 +367,64 @@ int Compiler::remoteCompile( bool debug )
         if( hz > 0 ) fCpuHz = static_cast<qint64>( hz );
     }
 
+    // Companion source/header files in the same directory as the open
+    // file. Sent so multi-file projects (e.g. main.cpp + utils.h +
+    // helpers.cpp) compile correctly: arduino-cli picks up siblings in a
+    // sketch folder automatically; the bare-metal avr-gcc path links all
+    // .c/.cpp sources together server-side. The main file is sent via
+    // the "sketch" field above and skipped here to avoid duplication.
+    //
+    // On WASM the editor's buffer can be ahead of MEMFS (the user typed
+    // into a tab but never invoked Save), so we prefer each open tab's
+    // live toPlainText() over the on-disk content and only fall back to
+    // a disk read for files that aren't currently open in a tab.
+    QJsonArray companionFiles;
+    const QString mainFileName = m_fileName + m_fileExt;
+    const QString fileDirAbs   = QDir( m_fileDir ).absolutePath();
+    const QStringList allowedExts = {"ino","c","cpp","cc","h","hpp"};
+
+    QSet<QString> capturedNames;
+
+    if( EditorWindow* ew = EditorWindow::self() ){
+        for( CodeEditor* ce : ew->openEditors() ){
+            if( !ce ) continue;
+            const QString openPath = ce->getFile();
+            if( openPath.isEmpty() ) continue;
+            const QFileInfo ofi( openPath );
+            if( QDir( ofi.absolutePath() ).absolutePath() != fileDirAbs ) continue;
+            const QString name = ofi.fileName();
+            if( name == mainFileName ) continue;
+            if( !allowedExts.contains( ofi.suffix().toLower() ) ) continue;
+            QJsonObject obj;
+            obj["path"]    = name;
+            obj["content"] = ce->toPlainText();
+            companionFiles.append( obj );
+            capturedNames.insert( name );
+        }
+    }
+
+    {
+        QDir srcDir( m_fileDir );
+        const QStringList filters = {
+            "*.ino", "*.c", "*.cpp", "*.cc", "*.h", "*.hpp"
+        };
+        const auto entries = srcDir.entryInfoList( filters,
+                                                   QDir::Files | QDir::NoSymLinks,
+                                                   QDir::Name );
+        for( const QFileInfo& fi : entries ){
+            const QString name = fi.fileName();
+            if( name == mainFileName ) continue;
+            if( capturedNames.contains( name ) ) continue; // live buffer wins
+            QFile f( fi.absoluteFilePath() );
+            if( !f.open( QIODevice::ReadOnly | QIODevice::Text ) ) continue;
+            QJsonObject obj;
+            obj["path"]    = name;
+            obj["content"] = QString::fromUtf8( f.readAll() );
+            companionFiles.append( obj );
+            f.close();
+        }
+    }
+
     QJsonObject reqObj;
     reqObj["sketch"]     = QString::fromUtf8( source );
     reqObj["board"]      = m_boardName;
@@ -371,11 +433,12 @@ int Compiler::remoteCompile( bool debug )
     reqObj["f_cpu"]      = fCpuHz;
     reqObj["extra_args"] = m_extraArgs;
     reqObj["debug"]      = debug;
-    reqObj["filename"]   = m_fileName + m_fileExt;
+    reqObj["filename"]   = mainFileName;
+    reqObj["files"]      = companionFiles;
     QByteArray body = QJsonDocument( reqObj ).toJson( QJsonDocument::Compact );
 
     m_outPane->appendLine( "-------------------------------------------------------" );
-    m_outPane->appendLine( QString( "Remote build: POST /simulation/arduino/compile  (sketch %1 bytes, %2)" )
+    m_outPane->appendLine( QString( "Remote build: POST /esa-api/compile/arduino (sketch %1 bytes, %2)" )
                               .arg( source.size() ).arg( m_compName ) );
 
     // Allocate the per-request context. Owns the body buffer (kept alive
@@ -400,7 +463,14 @@ int Compiler::remoteCompile( bool debug )
 
     // Header array: alternating key/value with a NULL terminator. The
     // strings must outlive the call; static const literals are fine.
-    static const char* kHeaders[] = { "Content-Type", "application/json", nullptr };
+    // Accept tells Laravel to return JSON for *all* responses, including
+    // validation errors — otherwise it would respond with an HTML redirect
+    // and the body parser here would choke on the "<!doctype html>" prefix.
+    static const char* kHeaders[] = {
+        "Content-Type", "application/json",
+        "Accept",       "application/json",
+        nullptr
+    };
     attr.requestHeaders = kHeaders;
 
     m_remoteBusy = true;
@@ -482,12 +552,18 @@ void Compiler::handleRemoteBuildResponse( const QByteArray& respBody,
 
 int Compiler::runBuildStep( QString fullCommand )
 {
+#ifdef __EMSCRIPTEN__
+    Q_UNUSED(fullCommand);
+    m_outPane->appendLine( "runBuildStep: native toolchain not available on WASM\n" );
+    return 0;
+#else
     m_outPane->appendLine( "Executing:\n"+fullCommand+"\n" );
     m_compProcess.setWorkingDirectory( m_fileDir );
     m_compProcess.start( fullCommand  );
     m_compProcess.waitForFinished(-1);
 
     return getErrors();
+#endif
 }
 
 void Compiler::compiled( QString firmware )
@@ -502,13 +578,14 @@ void Compiler::compiled( QString firmware )
 int Compiler::getErrors()
 {
     int error = 0;
-
+#ifndef __EMSCRIPTEN__
     QString p_stdout = m_compProcess.readAllStandardOutput();
     if( !p_stdout.isEmpty() ) error = getErrorLine( p_stdout );
     if( error ) return error;
 
     QString p_stderr = m_compProcess.readAllStandardError();
     if( !p_stderr.isEmpty() ) error = getErrorLine( p_stderr );
+#endif
     return error;
 }
 
@@ -596,7 +673,9 @@ void Compiler::compilerProps()
 bool Compiler::checkCommand( QString executable )
 {
     if( QFile::exists( executable ) ) return true;
-
+#ifdef __EMSCRIPTEN__
+    return false;
+#else
     QProcess check;
     check.start( executable  );
     bool started = check.waitForStarted();
@@ -605,6 +684,7 @@ bool Compiler::checkCommand( QString executable )
     check.readAllStandardOutput();
 
     return started;
+#endif
 }
 
 #ifdef __EMSCRIPTEN__
@@ -767,8 +847,8 @@ bool Compiler::extractZippedBuild( const QString& zipPath, const QString extract
         const qZipReader::FileInfo& info = fileList[i];
         QString targetPath = extractDir + QDir::separator() + info.filePath;
         
-        // m_outPane->appendLine( QString( "  Extracting: %1 (%2 bytes)" )
-        //                       .arg( info.filePath ).arg( info.size ) );
+        m_outPane->appendLine( QString( "  Extracting: %1 (%2 bytes)" )
+                              .arg( info.filePath ).arg( info.size ) );
 
         // Create parent directory if needed
         QFileInfo targetInfo( targetPath );

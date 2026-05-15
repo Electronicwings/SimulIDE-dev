@@ -300,7 +300,12 @@ void CodeEditor::insertCompletion( QString text )
         while( charact != "(" ){
             tc.movePosition( QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
             if( tc.atStart() or (tc.positionInBlock() == 0) ) break;
-            charact = tc.selectedText()[0];
+            // selectedText() can be empty in WASM edge cases even when the
+            // movePosition above succeeded; guard before [0] or Q_ASSERT
+            // fires inside qt_message and aborts the wasm runtime.
+            const QString sel = tc.selectedText();
+            if( sel.isEmpty() ) break;
+            charact = sel.left(1);
         }
         tc.removeSelectedText();
         tc.insertText( "()" );
@@ -376,9 +381,14 @@ QString CodeEditor::wordUnderCursor()
         tc.movePosition( QTextCursor::PreviousCharacter, QTextCursor::KeepAnchor);
         if( tc.atStart() or (tc.positionInBlock() == 0) )
             isStartOfWord = true;
-
-        else if( QChar( tc.selectedText()[0]).isSpace() )
-            isStartOfWord = true;
+        else {
+            // selectedText() can be empty in WASM edge cases even when the
+            // movePosition above appeared to succeed; bare [0] would hit
+            // Q_ASSERT inside QString → qFatal → wasm abort.
+            const QString sel = tc.selectedText();
+            if( sel.isEmpty() || sel.at(0).isSpace() )
+                isStartOfWord = true;
+        }
     }
     return tc.selectedText().trimmed();
 }
@@ -838,7 +848,11 @@ void CodeEditor::saveConfig()
         return;
     }
     QTextStream out( &file );
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     out.setCodec("UTF-8");
+#else
+    out.setEncoding(QStringConverter::Utf8);
+#endif
     out << config;
     file.close();
 }

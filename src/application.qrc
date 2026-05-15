@@ -34,6 +34,7 @@
         <file alias="angelscript.xml">../resources/data/codeeditor/compilers/compilers/angelscript.xml</file>
         <file alias="arduino.xml">../resources/data/codeeditor/compilers/compilers/arduino.xml</file>
         <file alias="generic.xml">../resources/data/codeeditor/compilers/compilers/generic.xml</file>
+        <file alias="generic-avr.xml">../resources/data/codeeditor/compilers/compilers/generic-avr.xml</file>
 
         <file alias="codeeditor/syntax/6502asm.syntax">../resources/data/codeeditor/syntax/6502asm.syntax</file>
         <file alias="codeeditor/syntax/avrasm.syntax">../resources/data/codeeditor/syntax/avrasm.syntax</file>

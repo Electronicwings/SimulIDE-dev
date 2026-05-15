@@ -25,7 +25,7 @@ enum simState_t{
 #include <QTimerEvent>
 #include <QMap>
 #include <QElapsedTimer>
-#ifndef __EMSCRIPTEN__
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
 #include <QFuture>
 #endif
 
@@ -136,7 +136,7 @@ class Simulator : public QObject
         uint64_t m_maxfinds;
 #endif
 
-#ifndef __EMSCRIPTEN__
+#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
         QFuture<void> m_CircuitFuture;
 #endif
 

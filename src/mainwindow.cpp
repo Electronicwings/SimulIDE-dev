@@ -114,6 +114,8 @@ MainWindow::MainWindow()
     //     "QToolButton { background: transparent; }"
     // );
 
+    m_settings->setValue("Circuit/hideGrid",  1 );
+
     createWidgets();
     m_circuitW->newCircuit();
     readSettings();
@@ -442,7 +444,7 @@ void MainWindow::searchChanged()
     // Position relative to MainWindow (the new parent). Dynamic height:
     // from just below the search bar down to a small margin above the
     // MainWindow's bottom so the list grows with the window.
-    const int bottomMargin = 20*m_fontScale;
+    const int bottomMargin = 10*m_fontScale;
     QPoint topLeft = m_searchComponent->mapTo( this,
                                                QPoint(0, m_searchComponent->height()) );
     int height = this->height() - topLeft.y() - bottomMargin;

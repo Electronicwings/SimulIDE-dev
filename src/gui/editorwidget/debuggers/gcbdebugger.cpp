@@ -29,6 +29,7 @@ int GcbDebugger::getErrorLine( QString txt )
     m_outPane->appendLine( txt );
 
     int error = 0;
+#ifndef __EMSCRIPTEN__
     if( m_compProcess.exitCode() )
     {
         for( QString line : txt.split("\n") )
@@ -43,6 +44,7 @@ int GcbDebugger::getErrorLine( QString txt )
             m_editor->addError( errorLine );
         }
     }
+#endif
     return error;
 }
 

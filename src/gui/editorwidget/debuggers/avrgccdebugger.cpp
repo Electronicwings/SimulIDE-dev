@@ -55,10 +55,12 @@ int uncompress2( Bytef* dest, uLongf* destLen,
 AvrGccDebugger::AvrGccDebugger( CodeEditor* parent, OutPanelText* outPane )
               : cDebugger( parent, outPane )
 {
+#ifndef __EMSCRIPTEN__
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert( QStringLiteral("LANG"), QStringLiteral("C") );
     env.insert( QStringLiteral("LC_MESSAGES"), QStringLiteral("C") );
     m_compProcess.setProcessEnvironment( env );
+#endif
     m_addrBytes = 1; // Default for avr-gcc
 }
 AvrGccDebugger::~AvrGccDebugger(){}
@@ -97,6 +99,9 @@ bool AvrGccDebugger::postProcess()
 
 bool AvrGccDebugger::getVariables()
 {
+#ifdef __EMSCRIPTEN__
+    return false;
+#else
     QString objdump = m_toolPath+"avr/bin/avr-objdump";
 
 #ifndef Q_OS_UNIX
@@ -155,10 +160,14 @@ bool AvrGccDebugger::getVariables()
     eMcu::self()->getRamTable()->setVariables( varList );
     m_outPane->appendLine( QString::number( varList.size() )+" variables found" );
     return true;
+#endif
 }
 
 bool AvrGccDebugger::getFunctions()
 {
+#ifdef __EMSCRIPTEN__
+    return false;
+#else
     // avr-readelf -s file.elf
     //   Num:    Valor  Tam  Tipo    Unión  Vis      Nombre Ind
     //    34: 00000090    22 FUNC    GLOBAL DEFAULT    2 function_name
@@ -214,10 +223,14 @@ bool AvrGccDebugger::getFunctions()
     }
     m_outPane->appendLine( QString::number( m_functions.size() )+" functions found" );
     return true;
+#endif
 }
 
 bool AvrGccDebugger::mapFlashToSource()
 {
+#ifdef __EMSCRIPTEN__
+    return false;
+#else
     QString avrSize = m_toolPath+"avr/bin/avr-size";
     QString addr2li = m_toolPath+"avr/bin/avr-addr2line";
 
@@ -309,6 +322,7 @@ bool AvrGccDebugger::mapFlashToSource()
     ok = !m_flashToSource.isEmpty();
     m_outPane->appendLine( QString::number( m_flashToSource.size() )+" lines mapped" );
     return ok;
+#endif
 }
 
 #ifdef SIM_HAS_LIBBFD

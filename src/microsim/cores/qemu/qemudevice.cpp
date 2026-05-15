@@ -117,7 +117,9 @@ QemuDevice::QemuDevice( QString type, QString id )
         qDebug() << "QemuDevice::QemuDevice Error creating arena";
     }
 
+#ifndef __EMSCRIPTEN__
     m_qemuProcess.setProcessChannelMode( /*QProcess::MergedChannels*/ QProcess::ForwardedChannels ); // Merge stdout and stderr
+#endif
 
     //Simulator::self()->addToUpdateList( this );
 
@@ -156,6 +158,7 @@ void QemuDevice::initialize()
 
     m_arena->running = 0;
 
+#ifndef __EMSCRIPTEN__
     m_qemuProcess.waitForFinished( 500 );
     if( m_qemuProcess.state() != QProcess::NotRunning )
     {
@@ -163,6 +166,7 @@ void QemuDevice::initialize()
         qDebug() << "QemuDevice: Qemu proccess killed";
     }
     else qDebug() << "QemuDevice: Qemu proccess finished";
+#endif
     //updateStep();
 
     for( QemuModule* module : m_modules ) module->reset();
@@ -200,6 +204,10 @@ void QemuDevice::stamp()
             qDebug() << "Error: QemuDevice::stamp executable does not exist:" << Qt::endl << executable;
             return;
         }
+#ifdef __EMSCRIPTEN__
+        qDebug() << "QemuDevice::stamp: spawning Qemu not supported on WASM";
+        return;
+#else
         m_qemuProcess.start( executable, m_arguments );
 
         uint64_t timeout = 0;
@@ -230,6 +238,7 @@ void QemuDevice::stamp()
                 return;
             }
         }
+#endif
         qDebug() << "\nQemuDevice::stamp started";
 
         Simulator::self()->addEvent( 1, this );
@@ -258,13 +267,17 @@ void QemuDevice::voltChanged()
     {
         m_arena->running = 0;
 
+#ifndef __EMSCRIPTEN__
         if( m_qemuProcess.state() > QProcess::NotRunning )
         {
             Simulator::self()->cancelEvents( this );
             m_qemuProcess.kill();
         }
+#endif
     }
+#ifndef __EMSCRIPTEN__
     else if( m_qemuProcess.state() == QProcess::NotRunning ) stamp();
+#endif
 }
 
 void QemuDevice::runModuleEvent()

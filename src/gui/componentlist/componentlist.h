@@ -48,6 +48,9 @@ class ComponentList : public QTreeWidget
         void dropEvent( QDropEvent* event ) override;
         void keyPressEvent(QKeyEvent *event) override;
         bool eventFilter( QObject* obj, QEvent* event ) override;
+        void drawRow( QPainter* painter,
+                      const QStyleOptionViewItem& options,
+                      const QModelIndex& index ) const override;
 
     private:
         void loadXml( QString xmlFile );

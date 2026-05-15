@@ -273,6 +273,95 @@ git submodule foreach --recursive "git clean -dfx" && git clean -dfx
 Then re-apply the patch (*Apply the WASM/ASYNCIFY patch* section) and
 continue from *Set up the build environment*.
 
+## Building SimulIDE for WebAssembly (Qt 6.11.0 + emscripten)
+
+SimulIDE can be built as a WebAssembly application that runs in the browser.
+This requires a custom-built Qt 6.11.0 toolchain configured for the
+`wasm-emscripten` platform with ASYNCIFY enabled.
+
+### Prerequisites
+
+- Python 3 (for the dev server)
+- OS-specific Qt 6 build dependencies (e.g. Qt6 prebuilt host installed binaries. use Qt online installer to install on host) — install per your platform
+  (Windows / Linux / macOS) following:
+  https://wiki.qt.io/Building_Qt_5_from_Git
+
+### Install emsdk (4.0.7 for Qt 6.11.0)
+
+Qt 6.11.0 targets emscripten 4.0.7. Install and activate it via the
+official emsdk:
+
+```
+# Install 4.0.7 emsdk for qt6.11.0
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+
+./emsdk install 4.0.7
+# to install latest version: ./emsdk install latest
+
+./emsdk activate 4.0.7
+# to activate latest version: ./emsdk activate latest
+```
+
+The `emsdk` directory you cloned here is what `<path-to-emsdk>` refers
+to in the *Set up the build environment* section
+(`source <path-to-emsdk>/emsdk_env.sh`).
+
+### Get the Qt 6.11.0 source
+
+```
+git clone git://code.qt.io/qt/qt5.git qt6
+cd qt6
+git checkout v6.11.0
+./init-repository
+```
+### Set up the build environment
+
+Before configuring Qt, load the emsdk environment and export the
+toolchain variables expected by `configure`:
+
+```
+# Load emsdk environment variables
+source <path-to-emsdk>/emsdk_env.sh
+```
+
+These need to be active in any shell that runs `configure`, `cmake`.
+
+### Configure and build Qt for WASM
+
+From the top-level `qt6/` directory:
+
+```
+
+./configure -xplatform wasm-emscripten -feature-thread \
+            -qt-host-path /home/ewings/Qt/6.11.0/gcc_64 \
+            -nomake tests -nomake examples \
+            -opensource -confirm-license \
+            -prefix $HOME/qt6install \
+            -submodules qtbase,qtsvg,qtmultimedia \
+            -- -DQT_QMAKE_DEVICE_OPTIONS=QT_EMSCRIPTEN_ASYNCIFY=1
+
+cmake --build . --parallel 10
+cmake --install .
+```
+
+After this, the toolchain is installed at `$HOME/qt6install` and
+`$HOME/qt6install/bin/qt-cmake` is the WASM-targeting qmake.
+
+### Cleaning the Qt source tree before a fresh rebuild
+
+If you want to rebuild Qt from a clean slate (for example, after pulling
+new changes or re-applying the patch), run from the `qt6/` root:
+
+```
+# Deep clean: wipe all build artifacts in every submodule and the top tree
+git submodule foreach --recursive "git clean -dfx" && git clean -dfx
+```
+
+Now follow same step for building from *Build SimulIDE for WASM* section.
+just make sure you will use qt6install path instead of qtinstall for qt6.
+
+
 ## Building binutils of avr for wasm
 
 Required tools for debugging of AVR family MCU's
@@ -360,4 +449,6 @@ now build it with
 ```
 emmake make all-bfd all-opcodes all-libiberty all-binutils
 ```
+
+note that binutils need to built seperately for each emsdk different version.
 

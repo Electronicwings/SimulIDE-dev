@@ -26,7 +26,7 @@ lineComment-style: #646464 default false true
 lineComment: "//[^\n]*"
 
 function-style: #202030 default false true
-function: "\\b[A-Za-z0-9_]+(?=\\()"
+function: "\b[A-Za-z0-9_]+(?=\()"
 
 multiLineComment-style: #FA5A5A default false true
 multiLineComment: "/\\*" "\\*/"

@@ -3,6 +3,9 @@
  *                                                                         *
  ***( see copyright.txt file at root folder )*******************************/
 
+#include <QPainter>
+#include <QPixmap>
+
 #include "treeitem.h"
 #include "mainwindow.h"
 
@@ -39,7 +42,7 @@ void TreeItem::setItemType( treItemType_t itemType )
     {
         setFlags( QFlag( Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsDragEnabled ) );
 
-        if( icon( 0 ).isNull() ) setSizeHint( 0, QSize( 100, 14*scale ) );
+        if( icon( 0 ).isNull() ) setSizeHint( 0, QSize( 100, 30*scale ) );
 
         if( m_isCustom ) setForeground( 0, QColor( 80, 90, 110 ) );
         else             setForeground( 0, QColor( 100, 90, 60 ) );
@@ -53,15 +56,11 @@ void TreeItem::setItemType( treItemType_t itemType )
 
         if( itemType == categ_MAIN )
         {
-            if( m_isCustom ){
-                setForeground( 0, QColor( 50, 60, 80 ) );
-                setBackground( 0, QBrush(QColor(208,208,208)) );
-            }else{
-                setForeground( 0, QColor( 75, 70, 10 ) );
-                setBackground( 0, QBrush(QColor(208,208,208)) );
-            }
-            setSizeHint( 0, QSize(100, 30*scale) );
+            if( m_isCustom ) setForeground( 0, QColor( 50, 60, 80 ) );
+            else             setForeground( 0, QColor( 75, 70, 10 ) );
+            setSizeHint( 0, QSize(100, 42*scale) );
             font.setPixelSize( 15*scale );
+            // scaleIcon( 28*scale );
         }
         else if( itemType == categ_CHILD )
         {
@@ -72,12 +71,38 @@ void TreeItem::setItemType( treItemType_t itemType )
                 setForeground( 0, QColor( 90, 80, 50 ) );
                 // setBackground( 0, QBrush(QColor( 230, 250, 245)) );
             }
-            if( icon( 0 ).isNull() ) setSizeHint( 0, QSize(100, 16*scale) );
-            else                     setSizeHint( 0, QSize(100, 20*scale) );
+            if( icon( 0 ).isNull() ) setSizeHint( 0, QSize(100, 30*scale) );
+            else                     setSizeHint( 0, QSize(100, 36*scale) );
             font.setPixelSize( 14*scale );
+            // scaleIcon( 26*scale );
         }
     }
     setFont( 0, font );
+}
+
+void TreeItem::scaleIcon( int targetH )
+{
+    // Re-render the icon onto a fresh pixmap at targetH px tall, so category
+    // rows can show a larger icon than the view's iconSize would normally
+    // produce from a small source pixmap. QIcon::pixmap() upsamples the best
+    // available source for us; we then store the result back as the icon.
+    QIcon src = icon( 0 );
+    if( src.isNull() ) return;
+
+    QSize avail = src.actualSize( QSize( targetH * 4, targetH * 4 ) );
+    if( avail.isEmpty() ) return;
+
+    qreal ratio = (qreal)avail.width() / (qreal)avail.height();
+    int targetW = qRound( targetH * ratio );
+
+    QPixmap pm( targetW, targetH );
+    pm.fill( Qt::transparent );
+    QPainter p( &pm );
+    p.setRenderHint( QPainter::SmoothPixmapTransform, true );
+    src.paint( &p, QRect( 0, 0, targetW, targetH ) );
+    p.end();
+
+    setIcon( 0, QIcon( pm ) );
 }
 
 void TreeItem::setItemExpanded( bool e )

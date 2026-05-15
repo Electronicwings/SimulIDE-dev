@@ -26,6 +26,10 @@ GputilsDebug::~GputilsDebug(){}
 
 bool GputilsDebug::getVariables( BaseDebugger* debugger )
 {
+#ifdef __EMSCRIPTEN__
+    Q_UNUSED(debugger);
+    return false;
+#else
     QString gpvc    = debugger->toolPath()+"gpvc";
     QString codPath = debugger->buildPath()+debugger->fileName()+".cod";
     if( !QFileInfo::exists( codPath ) )
@@ -91,10 +95,15 @@ bool GputilsDebug::getVariables( BaseDebugger* debugger )
     eMcu::self()->getRamTable()->setVariables( varNames );
     debugger->outPane()->appendLine( QString::number( varNames.size() )+" variables found" );
     return true;
+#endif
 }
 
 bool GputilsDebug::mapFlashToSource( BaseDebugger* debugger )
 {
+#ifdef __EMSCRIPTEN__
+    Q_UNUSED(debugger);
+    return false;
+#else
     QString gpvc    = debugger->toolPath()+"gpvc";
     QString codPath = debugger->buildPath()+debugger->fileName()+".cod";
     if( !QFileInfo::exists( codPath ) )
@@ -158,6 +167,7 @@ bool GputilsDebug::mapFlashToSource( BaseDebugger* debugger )
     }   }   }
     debugger->outPane()->appendLine( QString::number( debugger->flashToSourceSize() )+" lines mapped" );
     return true;
+#endif
 }
 
 /*bool GputilsDebug::mapFlashToAsm( BaseDebugger* debugger )

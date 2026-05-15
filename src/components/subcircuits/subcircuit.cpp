@@ -457,13 +457,21 @@ void SubCircuit::contextMenu( QGraphicsSceneContextMenuEvent* event, QMenu* menu
 
 void SubCircuit::openCircuit()
 {
+#ifdef __EMSCRIPTEN__
+    qDebug() << "SubCircuit::openCircuit: spawning external process not supported on WASM";
+#else
     QString executable = QCoreApplication::applicationDirPath()+"/simulide";
 #ifndef Q_OS_UNIX
     executable += ".exe";
 #endif
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     executable += " "+m_dataFile+" -nogui";
     QProcess openProc;
     openProc.startDetached( executable );
+#else
+    QProcess::startDetached( executable, QStringList{ m_dataFile, "-nogui" } );
+#endif
+#endif
 }
 
 void SubCircuit::addMainCompsMenu( QMenu* menu )

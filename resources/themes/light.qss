@@ -117,7 +117,8 @@ QPushButton:hover    { background-color: #F4F6F9; border-color: #BFD3FF; }
 QPushButton:pressed  { background-color: #eeeeee; }
 QPushButton:default {
     /* background-color: #2563EB; */
-    color: #FFFFFF;
+    /* color: #FFFFFF;  // disabled: with the blue background commented out
+                          this made default-button text white on white. */
     /* border-color: #1D4ED8; */
 }
 QPushButton:default:hover    { /* background-color: #1D4ED8; */ }
@@ -200,12 +201,25 @@ QTreeView, QListView, QTableView {
     background: #FFFFFF;
     alternate-background-color: #FAFBFC;
     border: 1px solid #E5E9F0;
-    selection-background-color: #eeeeee;
+    selection-background-color: transparent;
     selection-color: #1F2328;
     outline: 0;
+    show-decoration-selected: 1;
+}
+QTreeView::item, QListView::item, QTableView::item {
+    padding: 3px 6px;
+    margin: 2px 0px;
+    border: 1px solid transparent;
+    border-radius: 4px;
 }
 QTreeView::item:hover, QListView::item:hover, QTableView::item:hover {
-    background: #eeeeee;
+    background: #F0F2F5;
+    border-color: #E5E9F0;
+}
+QTreeView::item:selected, QListView::item:selected, QTableView::item:selected {
+    background: #E8ECF1;
+    border-color: #D6DBE3;
+    color: #1F2328;
 }
 QHeaderView::section {
     background: #F4F6F9;

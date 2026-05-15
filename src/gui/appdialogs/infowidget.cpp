@@ -15,29 +15,33 @@ InfoWidget::InfoWidget( QWidget* parent )
     setupUi( this );
     m_pSelf = this;
 
-    QFont font( MainWindow::self()->defaultFontName() , 10, QFont::Bold );
     double fontScale = MainWindow::self()->fontScale();
-    font.setPixelSize( 12*fontScale );
+    QFont captionFont( MainWindow::self()->defaultFontName(), 10, QFont::DemiBold );
+    captionFont.setPixelSize( 10*fontScale );
+    captionFont.setLetterSpacing( QFont::AbsoluteSpacing, 1.0 );
+    QFont valueFont( MainWindow::self()->defaultFontName(), 14, QFont::Bold );
+    valueFont.setPixelSize( 15*fontScale );
 
-    simTimeLabel->setFont( font );
-    simTime->setFont( font );
-    targetSpeedLabel->setFont( font );
-    targetSpeed->setFont( font );
-    realSpeedLabel->setFont( font );
-    realSpeed->setFont( font );
-    simLoadLabel->setFont( font );
-    simLoadVal->setFont( font );
-    guiLoadLabel->setFont( font );
-    guiLoadVal->setFont( font );
-    overLoadLabel->setFont( font );
-    overLoadVal->setFont( font );
-    fpsLabel->setFont( font );
-    fpsVal->setFont( font );
-    mainMcuLabel->setFont( font );
-    mainMcu->setFont( font );
-    mainMcuName->setFont( font );
+    simTimeLabel->setFont( captionFont );
+    targetSpeedLabel->setFont( captionFont );
+    realSpeedLabel->setFont( captionFont );
+    simLoadLabel->setFont( captionFont );
+    guiLoadLabel->setFont( captionFont );
+    overLoadLabel->setFont( captionFont );
+    fpsLabel->setFont( captionFont );
+    mainMcuLabel->setFont( captionFont );
 
-    overLoadVal->setVisible( false );
+    simTime->setFont( valueFont );
+    targetSpeed->setFont( valueFont );
+    realSpeed->setFont( valueFont );
+    simLoadVal->setFont( valueFont );
+    guiLoadVal->setFont( valueFont );
+    overLoadVal->setFont( valueFont );
+    fpsVal->setFont( valueFont );
+    mainMcu->setFont( valueFont );
+    mainMcuName->setFont( valueFont );
+
+    overLoadCard->setVisible( false );
 }
 
 void InfoWidget::setTargetSpeed( double s )
@@ -45,7 +49,7 @@ void InfoWidget::setTargetSpeed( double s )
     QString speed = QString::number( s,'f', 2 )+" %";
     if( s < 100 ) speed = "0"+speed;
     if( s < 10 )  speed = "0"+speed;
-    targetSpeed->setText("  "+speed );
+    targetSpeed->setText( speed );
     updtMcu();
 }
 
@@ -55,7 +59,7 @@ void InfoWidget::updtMcu()
     {
         QString device = Mcu::self()->device();
         QString freq = QString::number( eMcu::self()->freq()*1e-6 );
-        mainMcu->setText( "  "+device+" at "+freq+" MHz" );
+        mainMcu->setText( device+" at "+freq+" MHz" );
 
         QString name;
         Mcu* mcu = Mcu::self();
@@ -65,14 +69,12 @@ void InfoWidget::updtMcu()
             name = comp->idLabel();
         }
         else name = mcu->idLabel();
-        mainMcuName->setText( "  "+name );
+        mainMcuName->setText( name );
     }else{
-        mainMcu->setText( "  ---" );
-        mainMcuName->setText( "  ---" );
+        mainMcu->setText( "---" );
+        mainMcuName->setText( "---" );
     }
-    mainMcuLabel->setVisible( Mcu::self() );
-    mainMcu->setVisible( Mcu::self() );
-    mainMcuName->setVisible( Mcu::self() );
+    mainMcuCard->setVisible( Mcu::self() );
 }
 
 void InfoWidget::setRate( double rate, double simLoad, double guiLoad, int fps )
@@ -80,8 +82,8 @@ void InfoWidget::setRate( double rate, double simLoad, double guiLoad, int fps )
     updtMcu();
     if( rate < 0 )
     {
-        if( rate == -1 ) realSpeed->setText( "  "+tr("Speed: Debugger") );
-        else             realSpeed->setText( "  "+tr("Circuit ERROR!!!") );
+        if( rate == -1 ) realSpeed->setText( tr("Speed: Debugger") );
+        else             realSpeed->setText( tr("Circuit ERROR!!!") );
     }else{
         //if( (load > 150) || (load < 0) ) load = 0;
         double speed = rate/100;
@@ -96,12 +98,10 @@ void InfoWidget::setRate( double rate, double simLoad, double guiLoad, int fps )
             QString Oload = QString::number( overLoad,'f', 2 );
             while( Oload.size() < 6 ) Oload = "0"+Oload;
 
-            overLoadVal->setText( "  "+Oload+" %    ");
-            overLoadLabel->setVisible( true );
-            overLoadVal->setVisible( true );
+            overLoadVal->setText( Oload+" %" );
+            overLoadCard->setVisible( true );
         }else{
-            overLoadLabel->setVisible( false );
-            overLoadVal->setVisible( false );
+            overLoadCard->setVisible( false );
         }
         QString Sload = QString::number( simLoad,'f', 2 );
         while( Sload.size() < 6 ) Sload = "0"+Sload;
@@ -111,10 +111,10 @@ void InfoWidget::setRate( double rate, double simLoad, double guiLoad, int fps )
 
         QString FPS = QString::number( fps );
 
-        realSpeed->setText( "  "+Srate+" %" );
-        simLoadVal->setText( "  "+Sload+" %    ");
-        guiLoadVal->setText( "  "+Gload+" %    ");
-        fpsVal->setText( "  "+FPS );
+        realSpeed->setText( Srate+" %" );
+        simLoadVal->setText( Sload+" %" );
+        guiLoadVal->setText( Gload+" %" );
+        fpsVal->setText( FPS );
 }   }
 
 void InfoWidget::setCircTime( uint64_t tStep )

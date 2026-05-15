@@ -9,7 +9,7 @@ QT += svg
 QT += xml
 QT += widgets
 QT += network
-!wasm: QT += concurrent
+QT += concurrent
 !wasm: QT += serialport
 
 # Compile-time toggle: hide non-essential menu/toolbar actions and the
@@ -232,20 +232,53 @@ wasm {
     WASM_FILE_SUFFIX = $$WASM_VERSION_SUFFIX$$WASM_BUILD_SUFFIX
     WASM_MODULE_NAME = $$TARGET$$WASM_FILE_SUFFIX
     QTLOADER_VERSIONED = qtloader$${WASM_FILE_SUFFIX}.js
-    
+
+    # Pick template based on Qt major version:
+    #  - Qt5: wasm_shell.html        (uses old QtLoader API, canvas element)
+    #  - Qt6: wasm_shell_qt6.html    (uses new qtLoad API, div container)
+    lessThan(QT_MAJOR_VERSION, 6) {
+        WASM_SHELL_TEMPLATE   = $$PWD/wasm_shell.html
+        WASM_LOADER_TEMPLATE  = $$PWD/qtloader.js
+    } else {
+        WASM_SHELL_TEMPLATE   = $$PWD/wasm_shell_qt6.html
+        WASM_LOADER_TEMPLATE  = $$PWD/qtloader_qt6.js
+    }
+
+    # emcc EXPORT_NAME used in the link step (matches -s EXPORT_NAME=...). The
+    # Qt6 template references this as window.<APPEXPORTNAME> to start the wasm
+    # module. Qt5 template ignores it — harmless if substituted there too.
+    WASM_EXPORT_NAME = $${TARGET}_entry
+
     # Post-link command to deploy and version all WASM files:
-    # 1. Replace @APPNAME@ with versioned module name (e.g., TARGET_v2.0.0-i1_12-05-26)
-    # 2. Replace @QTLOADER@ with versioned qtloader filename
-    # 3. Rename $$TARGET.js → TARGET_v2.0.0-i1_12-05-26.js
-    # 4. Rename $$TARGET.wasm → TARGET_v2.0.0-i1_12-05-26.wasm
-    # 5. Copy qtloader.js with version suffix
-    QMAKE_POST_LINK = sed -e s/@APPNAME@/$$WASM_MODULE_NAME/g -e s/@QTLOADER@/$$QTLOADER_VERSIONED/g $$shell_quote($$PWD/wasm_shell.html) > $$shell_quote($$TARGET_PREFIX/$${TARGET}.html) ; \
-                     sed -e s/$${TARGET}\.data/$${WASM_MODULE_NAME}\.data/g $$shell_quote($$TARGET_PREFIX/$${TARGET}.js) > $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.js) ; \
-                     $(MOVE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.wasm) $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.wasm) ; \
-                     $(MOVE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.data) $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.data) ; \
-                     $(COPY_FILE) $$shell_quote($$PWD/qtloader.js) $$shell_quote($$TARGET_PREFIX/$$QTLOADER_VERSIONED); \
-                     $(DEL_FILE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.js) ; \
-                     $(DEL_FILE) $$shell_quote($$TARGET_PREFIX/qtloader.js) ;
+    # 0. Clean any previously-deployed versioned artifacts so stale builds don't
+    #    accumulate in the deploy dir. Globs are intentionally unquoted so the
+    #    shell expands them; rm -f swallows the case where nothing matches.
+    # 1. Substitute placeholders in the html template (writes versioned .html):
+    #      @APPNAME@        -> versioned module name (e.g., simulide_v2.0.0-i1_140526)
+    #      @APPEXPORTNAME@  -> emcc EXPORT_NAME (Qt6 only; ignored by Qt5 template)
+    #      @QTLOADER@       -> versioned qtloader filename
+    #      @PRELOAD@        -> empty (Qt6 only; ignored by Qt5 template)
+    # 2. Rewrite .data and .wasm filename references inside the .js (saved as versioned .js)
+    # 3. Rename .wasm and .data files to versioned names
+    # 4. Copy the chosen qtloader template to the versioned name in target dir
+    # 5. Remove the original (un-versioned) emcc-produced .js and Qt-installed qtloader.js
+    QMAKE_POST_LINK = rm -f $$TARGET_PREFIX/$${TARGET}_v*.js \
+                            $$TARGET_PREFIX/$${TARGET}_v*.wasm \
+                            $$TARGET_PREFIX/$${TARGET}_v*.data \
+                            $$TARGET_PREFIX/qtloader_v*.js ; \
+                      sed -e s/@APPNAME@/$$WASM_MODULE_NAME/g \
+                          -e s/@APPEXPORTNAME@/$$WASM_EXPORT_NAME/g \
+                          -e s/@QTLOADER@/$$QTLOADER_VERSIONED/g \
+                          -e s/@PRELOAD@//g \
+                          $$shell_quote($$WASM_SHELL_TEMPLATE) > $$shell_quote($$TARGET_PREFIX/$${TARGET}.html) ; \
+                      sed -e s/$${TARGET}\.data/$${WASM_MODULE_NAME}\.data/g \
+                          -e s/$${TARGET}\.wasm/$${WASM_MODULE_NAME}\.wasm/g \
+                          $$shell_quote($$TARGET_PREFIX/$${TARGET}.js) > $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.js) ; \
+                      $(MOVE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.wasm) $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.wasm) ; \
+                      $(MOVE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.data) $$shell_quote($$TARGET_PREFIX/$${WASM_MODULE_NAME}.data) ; \
+                      $(COPY_FILE) $$shell_quote($$WASM_LOADER_TEMPLATE) $$shell_quote($$TARGET_PREFIX/$$QTLOADER_VERSIONED) ; \
+                      $(DEL_FILE) $$shell_quote($$TARGET_PREFIX/$${TARGET}.js) ; \
+                      $(DEL_FILE) $$shell_quote($$TARGET_PREFIX/qtloader.js) ;
 }
 
 message( "-----------------------------------")

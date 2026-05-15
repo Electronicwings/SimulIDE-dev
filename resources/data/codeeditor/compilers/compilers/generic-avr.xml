@@ -1,0 +1,13 @@
+<!DOCTYPE SimulIDE>
+
+<!--
+    Generic AVR compiler entry: no local toolchain, no build steps.
+    Used for non-Arduino AVR MCU drops (.c / .cpp). Actual compilation
+    happens server-side via Compiler::remoteCompile; the X-Mcu-Name /
+    X-Family headers tell the server which avr-gcc target to invoke.
+    Pairs with GenericAvrDebugger so DWARF stepping, variable inspection,
+    and disassembly work against the returned .elf — same pipeline as
+    InoDebugger but without the Arduino .ino path conventions.
+-->
+<compiler name="Generic-AVR" type="genericavr">
+</compiler>

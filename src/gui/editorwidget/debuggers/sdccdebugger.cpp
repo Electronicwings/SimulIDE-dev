@@ -32,6 +32,7 @@ int SdccDebugger::compile( bool debug )
         if( !hexInfo.exists() // hex file not exists
          || ( ihxInfo.exists() && (hexInfo.lastModified() < ihxInfo.lastModified()))) // ihx file is newer
         {
+#ifndef __EMSCRIPTEN__
             QString packihx = m_toolPath+"packihx";
         #ifndef Q_OS_UNIX
             packihx += ".exe";
@@ -46,7 +47,9 @@ int SdccDebugger::compile( bool debug )
                 QTextStream out(&file);
                 out << m_compProcess.readAllStandardOutput();
                 file.close();
-    }   }   }
+            }
+#endif
+    }   }
     return error;
 }
 

@@ -142,6 +142,11 @@ InoDebugger::~InoDebugger() {}
 
 void InoDebugger::setToolPath( QString path )
 {
+#ifdef __EMSCRIPTEN__
+    Q_UNUSED(path);
+    m_outPane->appendLine( "InoDebugger::setToolPath: Arduino tool detection not available on WASM" );
+    return;
+#else
     QString builder = "arduino-builder";
     #ifndef Q_OS_UNIX
     builder += ".exe";
@@ -264,6 +269,7 @@ void InoDebugger::setToolPath( QString path )
 
     QString line = m_editor->document()->findBlockByLineNumber(0).text(); // Board name in file first line
     setBoard( BaseDebugger::getValueInFile( line, "board" ) );
+#endif
 }
 
 bool InoDebugger::upload() // Copy hex file to Circuit folder, then upload
@@ -367,8 +373,10 @@ int InoDebugger::compile( bool debug )
     m_firmware = "";
 
     m_outPane->appendLine( "\nExecuting:\n"+command+"\n" );
+#ifndef __EMSCRIPTEN__
     m_compProcess.start( command );
     m_compProcess.waitForFinished(-1);
+#endif
 
     m_outPane->appendLine( "Build folder: "+m_buildPath );
     m_outPane->appendLine( "SketchBook:   "+m_sketchBook );

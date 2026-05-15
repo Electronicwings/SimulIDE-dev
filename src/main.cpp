@@ -25,7 +25,14 @@ void myMessageOutput( QtMsgType type, const QMessageLogContext &context, const Q
     const char* function = context.function ? context.function : "";
     switch (type) {
     case QtDebugMsg:
+#ifndef __EMSCRIPTEN__
+        // WASM: do NOT route into simDebugMessage. That calls
+        // OutPanelText::appendLine which does a synchronous repaint()
+        // from inside the message-handler stack — Qt's text engine then
+        // allocates layout buffers re-entrantly and aborts with
+        // std::__throw_bad_array_new_length on the WASM build.
         if( CircuitWidget::self() ) CircuitWidget::self()->simDebugMessage( msg );
+#endif
         fprintf( stderr, "%s \n", localMsg.constData() );
         break;
     case QtInfoMsg:

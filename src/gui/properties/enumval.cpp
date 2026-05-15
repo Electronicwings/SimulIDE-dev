@@ -70,6 +70,7 @@ void EnumVal::on_showVal_toggled( bool checked )
     m_blocked = false;
 }
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 void EnumVal::on_valueBox_currentIndexChanged( QString val )
 {
     if( m_blocked ) return;
@@ -81,6 +82,19 @@ void EnumVal::on_valueBox_currentIndexChanged( QString val )
     if( showVal->isChecked() ) m_component->setPropStr("ValLabelText", val ); //setValLabelText( val );
     saveChanges();
 }
+#else
+void EnumVal::on_valueBox_currentIndexChanged( int index )
+{
+    if( m_blocked ) return;
+    if( index < 0 || index >= m_enums.size() ) return;
+
+    prepareChange();
+    m_property->setValStr( m_enums.at( index ) );
+
+    if( showVal->isChecked() ) m_component->setPropStr("ValLabelText", valueBox->itemText( index ) );
+    saveChanges();
+}
+#endif
 
 void EnumVal::updtValues()
 {

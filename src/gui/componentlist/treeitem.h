@@ -36,6 +36,9 @@ class TreeItem : public QTreeWidgetItem
         //void setItemHidden( bool h );
 
         void setItemType( treItemType_t itemType );
+        treItemType_t itemType() const { return m_itemType; }
+
+        void scaleIcon( int targetH );
 
         QString toString( QString indent="" );
 

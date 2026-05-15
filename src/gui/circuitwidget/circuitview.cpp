@@ -183,6 +183,13 @@ void CircuitView::openEditorForMcu( Mcu* mcu, const QString& boardName ) // stat
     // Arduino compiler attaches via the existing extension auto-detect.
     // Raw MCUs fall back to the Mcu virtuals (.cpp + generic main).
     const bool    asArduino = !boardName.isEmpty();
+    // AVR raw MCUs (ATtiny/ATmega/AT90...) get the Generic-AVR compiler so
+    // GenericAvrDebugger attaches and DWARF stepping works against the .elf
+    // returned by remoteCompile. Non-AVR families keep the plain Generic.
+    const QString devLower  = mcu->device().toLower();
+    const bool    isAvrFam  = devLower.startsWith("mega")
+                           || devLower.startsWith("tiny")
+                           || devLower.startsWith("at90");
     const QString tpl       = asArduino ? QString::fromUtf8( McuTemplates::arduinoBlink )
                                         : mcu->templateContent();
     const QString path      = Circuit::mcuSourcePath( mcu, boardName );
@@ -208,6 +215,7 @@ void CircuitView::openEditorForMcu( Mcu* mcu, const QString& boardName ) // stat
     // compiler unconditionally — setCompName is a no-op when the same
     // compiler is already attached.
     const QString compilerName = asArduino ? QStringLiteral("Arduino")
+                                : isAvrFam ? QStringLiteral("Generic-AVR")
                                            : QStringLiteral("Generic");
     ce->setCompName( compilerName );
 
@@ -426,6 +434,6 @@ void CircuitView::saveImage()
 
 void CircuitView::drawBackground( QPainter* p, const QRectF &rect )
 {
-    p->fillRect( rect, QColor( 175, 175, 180 ) );
+    p->fillRect( rect, QColor( 220, 220, 220 ) );
     m_circuit->drawBackground( p, rect );
 }

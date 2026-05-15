@@ -19,6 +19,7 @@
 #include "gcbdebugger.h"
 #include "inodebugger.h"
 #include "avrgccdebugger.h"
+#include "genericavrdebugger.h"
 #include "xc8debugger.h"
 #include "sdccdebugger.h"
 #include "asdebugger.h"
@@ -159,9 +160,9 @@ void EditorWindow::stop()
     m_outPane.appendLine( "\n"+tr("Debugger Stopped ")+"\n" );
     m_debuggerToolBar->setVisible( false );
     m_compileToolBar->setVisible( true );
-#ifndef HIDE_SOME_ACTIONS
+// #ifndef HIDE_SOME_ACTIONS
     m_editorToolBar->setVisible( true);
-#endif
+// #endif
 }
 
 void EditorWindow::initDebbuger()
@@ -184,9 +185,9 @@ void EditorWindow::initDebbuger()
         reset();
 
         m_outPane.appendLine("\n"+tr("Debugger Started")+"\n");
-#ifndef HIDE_SOME_ACTIONS
+// #ifndef HIDE_SOME_ACTIONS
         m_editorToolBar->setVisible( false );
-#endif
+// #endif
         m_compileToolBar->setVisible( false );
         m_debuggerToolBar->setVisible( true );
 
@@ -260,12 +261,13 @@ BaseDebugger* EditorWindow::createDebugger( QString name, CodeEditor* ce, QStrin
         type = m_assemblers.value( name ).type;
         file = m_assemblers.value( name ).file;
     }
-    if     ( type == "arduino")  debugger = new InoDebugger   ( ce, &m_outPane );
-    else if( type == "avrgcc" )  debugger = new AvrGccDebugger( ce, &m_outPane );
-    else if( type == "xc8" )     debugger = new Xc8Debugger   ( ce, &m_outPane );
-    else if( type == "sdcc" )    debugger = new SdccDebugger  ( ce, &m_outPane );
-    else if( type == "gcbasic" ) debugger = new GcbDebugger   ( ce, &m_outPane );
-    else if( type == "ascript" ) debugger = new asDebugger    ( ce, &m_outPane );
+    if     ( type == "arduino")    debugger = new InoDebugger        ( ce, &m_outPane );
+    else if( type == "avrgcc" )    debugger = new AvrGccDebugger     ( ce, &m_outPane );
+    else if( type == "genericavr" )debugger = new GenericAvrDebugger ( ce, &m_outPane );
+    else if( type == "xc8" )       debugger = new Xc8Debugger        ( ce, &m_outPane );
+    else if( type == "sdcc" )      debugger = new SdccDebugger       ( ce, &m_outPane );
+    else if( type == "gcbasic" )   debugger = new GcbDebugger        ( ce, &m_outPane );
+    else if( type == "ascript" )   debugger = new asDebugger         ( ce, &m_outPane );
     else{
         debugger = new BaseDebugger( ce, &m_outPane );
         if( name != "None" ) code = type.right( 2 );
@@ -283,6 +285,10 @@ void EditorWindow::loadCompilers()
     // Generic: no local toolchain. Used for non-Arduino MCU drops so .cpp
     // files have a build target — actual compile is performed server-side.
     m_compilers.insert("Generic", {":/generic.xml", "generic"} );
+    // Generic-AVR: same remote-compile path as Generic, but attaches the
+    // AvrGccDebugger-derived GenericAvrDebugger so DWARF stepping works for
+    // ATtiny/ATmega .c/.cpp drops.
+    m_compilers.insert("Generic-AVR", {":/generic-avr.xml", "genericavr"} );
 
     // User compiler data
     QString compilsPath = MainWindow::self()->getUserFilePath("codeeditor/compilers");

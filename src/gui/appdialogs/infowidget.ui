@@ -6,811 +6,358 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>819</width>
-    <height>247</height>
+    <width>900</width>
+    <height>10</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+   <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
+  <property name="minimumSize">
+   <size><width>0</width><height>0</height></size>
+  </property>
+  <property name="maximumSize">
+   <size><width>16777215</width><height>16777215</height></size>
+  </property>
   <property name="windowTitle">
    <string notr="true">Form</string>
   </property>
-  <widget class="QLabel" name="simTimeLabel">
-   <property name="geometry">
-    <rect>
-     <x>9</x>
-     <y>8</y>
-     <width>118</width>
-     <height>17</height>
-    </rect>
-   </property>
-   <property name="sizePolicy">
-    <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
-     <horstretch>0</horstretch>
-     <verstretch>0</verstretch>
-    </sizepolicy>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>11</pointsize>
-     <weight>75</weight>
-     <bold>true</bold>
-    </font>
-   </property>
-   <property name="styleSheet">
-    <string notr="true"/>
-   </property>
-   <property name="locale">
-    <locale language="C" country="AnyCountry"/>
-   </property>
-   <property name="text">
-    <string>Simulation Time:</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="simTime">
-   <property name="geometry">
-    <rect>
-     <x>9</x>
-     <y>31</y>
-     <width>802</width>
-     <height>17</height>
-    </rect>
-   </property>
-   <property name="sizePolicy">
-    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-     <horstretch>0</horstretch>
-     <verstretch>0</verstretch>
-    </sizepolicy>
-   </property>
-   <property name="palette">
-    <palette>
-     <active>
-      <colorrole role="WindowText">
-       <brush brushstyle="SolidPattern">
-        <color alpha="255">
-         <red>170</red>
-         <green>0</green>
-         <blue>0</blue>
-        </color>
-       </brush>
-      </colorrole>
-     </active>
-     <inactive>
-      <colorrole role="WindowText">
-       <brush brushstyle="SolidPattern">
-        <color alpha="255">
-         <red>170</red>
-         <green>0</green>
-         <blue>0</blue>
-        </color>
-       </brush>
-      </colorrole>
-     </inactive>
-     <disabled>
-      <colorrole role="WindowText">
-       <brush brushstyle="SolidPattern">
-        <color alpha="255">
-         <red>144</red>
-         <green>144</green>
-         <blue>144</blue>
-        </color>
-       </brush>
-      </colorrole>
-     </disabled>
-    </palette>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>11</pointsize>
-     <weight>75</weight>
-     <bold>true</bold>
-    </font>
-   </property>
-   <property name="text">
-    <string notr="true">0</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_4">
-   <property name="geometry">
-    <rect>
-     <x>9</x>
-     <y>45</y>
-     <width>804</width>
-     <height>9</height>
-    </rect>
-   </property>
-   <property name="maximumSize">
-    <size>
-     <width>16777215</width>
-     <height>9</height>
-    </size>
-   </property>
-   <property name="text">
-    <string/>
-   </property>
-  </widget>
-  <widget class="QWidget" name="layoutWidget">
-   <property name="geometry">
-    <rect>
-     <x>9</x>
-     <y>60</y>
-     <width>804</width>
-     <height>160</height>
-    </rect>
-   </property>
-   <layout class="QGridLayout" name="gridLayout">
-    <property name="horizontalSpacing">
-     <number>9</number>
-    </property>
-    <property name="verticalSpacing">
-     <number>0</number>
-    </property>
-    <item row="8" column="0">
-     <widget class="QLabel" name="label_3">
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>7</height>
-       </size>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget#infoWidget, QWidget#infoScrollContent { background: #FFFFFF; }
+QScrollArea#infoScroll { border: none; background: transparent; }
+QFrame[role=&quot;card&quot;] {
+    background: #F4F6F9;
+    border: 1px solid #E5E9F0;
+    border-radius: 6px;
+}
+QFrame[role=&quot;card&quot;] QLabel { background: transparent; border: none; }
+QLabel[role=&quot;caption&quot;] {
+    color: #57606A;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+QLabel[role=&quot;value&quot;]      { color: #0F62FE; font-weight: 700; }
+QLabel[role=&quot;valueDanger&quot;] { color: #B91C1C; font-weight: 700; }
+QLabel[role=&quot;valueDark&quot;]   { color: #1F2328; font-weight: 700; }</string>
+  </property>
+
+  <!-- Outer wrapper: a scroll area so the splitter controls how much of the
+       info is shown. Default splitter sizing reveals only the sim-time card;
+       dragging the splitter up reveals the rest, with the scroll area
+       handling overflow. sizePolicy=Ignored vertically means card-visibility
+       changes inside (overload/MCU) never push the splitter around. -->
+  <layout class="QVBoxLayout" name="outerLayout">
+   <property name="leftMargin">   <number>0</number> </property>
+   <property name="topMargin">    <number>0</number> </property>
+   <property name="rightMargin">  <number>0</number> </property>
+   <property name="bottomMargin"> <number>0</number> </property>
+   <property name="spacing">      <number>0</number> </property>
+   <item>
+    <widget class="QScrollArea" name="infoScroll">
+     <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+     <property name="widgetResizable"><bool>true</bool></property>
+     <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+     <property name="verticalScrollBarPolicy"><enum>Qt::ScrollBarAsNeeded</enum></property>
+     <widget class="QWidget" name="infoScrollContent">
+      <layout class="QVBoxLayout" name="rootLayout">
+       <property name="leftMargin">    <number>0</number> </property>
+       <property name="topMargin">     <number>0</number> </property>
+       <property name="rightMargin">   <number>0</number> </property>
+       <property name="bottomMargin">  <number>0</number> </property>
+       <property name="spacing">       <number>4</number> </property>
+
+       <!-- ====================== Simulation Time card ====================== -->
+       <item>
+        <widget class="QFrame" name="simTimeCard">
+         <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+         <property name="role" stdset="0"><string notr="true">card</string></property>
+         <layout class="QHBoxLayout" name="simTimeCardLayout">
+          <property name="leftMargin">   <number>10</number> </property>
+          <property name="topMargin">    <number>6</number>  </property>
+          <property name="rightMargin">  <number>10</number> </property>
+          <property name="bottomMargin"> <number>6</number>  </property>
+          <property name="spacing">      <number>10</number> </property>
+          <item>
+           <widget class="QLabel" name="simTimeLabel">
+            <property name="text"><string>SIMULATION TIME</string></property>
+            <property name="role" stdset="0"><string notr="true">caption</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="simTime">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text"><string notr="true">00:00:00 s  000 ms  000 µs  000 ns  000 ps</string></property>
+            <property name="role" stdset="0"><string notr="true">valueDanger</string></property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <!-- ====================== Metric cards row ====================== -->
+       <item>
+        <layout class="QHBoxLayout" name="cardsRow">
+         <property name="spacing"><number>6</number></property>
+
+         <!-- Target Speed -->
+         <item>
+          <widget class="QFrame" name="targetSpeedCard">
+           <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="role" stdset="0"><string notr="true">card</string></property>
+           <layout class="QVBoxLayout" name="targetSpeedCardLayout">
+            <property name="leftMargin">   <number>10</number> </property>
+            <property name="topMargin">    <number>6</number>  </property>
+            <property name="rightMargin">  <number>10</number> </property>
+            <property name="bottomMargin"> <number>6</number>  </property>
+            <property name="spacing">      <number>2</number>  </property>
+            <item>
+             <widget class="QLabel" name="targetSpeedLabel">
+              <property name="text"><string>TARGET SPEED</string></property>
+              <property name="role" stdset="0"><string notr="true">caption</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="targetSpeed">
+              <property name="text"><string notr="true">100.00 %</string></property>
+              <property name="role" stdset="0"><string notr="true">value</string></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+
+         <!-- Real Speed -->
+         <item>
+          <widget class="QFrame" name="realSpeedCard">
+           <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="role" stdset="0"><string notr="true">card</string></property>
+           <layout class="QVBoxLayout" name="realSpeedCardLayout">
+            <property name="leftMargin">   <number>10</number> </property>
+            <property name="topMargin">    <number>6</number>  </property>
+            <property name="rightMargin">  <number>10</number> </property>
+            <property name="bottomMargin"> <number>6</number>  </property>
+            <property name="spacing">      <number>2</number>  </property>
+            <item>
+             <widget class="QLabel" name="realSpeedLabel">
+              <property name="text"><string>REAL SPEED</string></property>
+              <property name="role" stdset="0"><string notr="true">caption</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="realSpeed">
+              <property name="text"><string notr="true">000.00 %</string></property>
+              <property name="role" stdset="0"><string notr="true">value</string></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+
+         <!-- Engine Load -->
+         <item>
+          <widget class="QFrame" name="simLoadCard">
+           <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="role" stdset="0"><string notr="true">card</string></property>
+           <layout class="QVBoxLayout" name="simLoadCardLayout">
+            <property name="leftMargin">   <number>10</number> </property>
+            <property name="topMargin">    <number>6</number>  </property>
+            <property name="rightMargin">  <number>10</number> </property>
+            <property name="bottomMargin"> <number>6</number>  </property>
+            <property name="spacing">      <number>2</number>  </property>
+            <item>
+             <widget class="QLabel" name="simLoadLabel">
+              <property name="text"><string>ENGINE LOAD</string></property>
+              <property name="role" stdset="0"><string notr="true">caption</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="simLoadVal">
+              <property name="text"><string notr="true">000.00 %</string></property>
+              <property name="role" stdset="0"><string notr="true">value</string></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+
+         <!-- Update Load -->
+         <item>
+          <widget class="QFrame" name="guiLoadCard">
+           <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="role" stdset="0"><string notr="true">card</string></property>
+           <layout class="QVBoxLayout" name="guiLoadCardLayout">
+            <property name="leftMargin">   <number>10</number> </property>
+            <property name="topMargin">    <number>6</number>  </property>
+            <property name="rightMargin">  <number>10</number> </property>
+            <property name="bottomMargin"> <number>6</number>  </property>
+            <property name="spacing">      <number>2</number>  </property>
+            <item>
+             <widget class="QLabel" name="guiLoadLabel">
+              <property name="text"><string>UPDATE LOAD</string></property>
+              <property name="role" stdset="0"><string notr="true">caption</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="guiLoadVal">
+              <property name="text"><string notr="true">000.00 %</string></property>
+              <property name="role" stdset="0"><string notr="true">value</string></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+
+         <!-- GUI Overload (hidden until needed) -->
+         <item>
+          <widget class="QFrame" name="overLoadCard">
+           <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="role" stdset="0"><string notr="true">card</string></property>
+           <layout class="QVBoxLayout" name="overLoadCardLayout">
+            <property name="leftMargin">   <number>10</number> </property>
+            <property name="topMargin">    <number>6</number>  </property>
+            <property name="rightMargin">  <number>10</number> </property>
+            <property name="bottomMargin"> <number>6</number>  </property>
+            <property name="spacing">      <number>2</number>  </property>
+            <item>
+             <widget class="QLabel" name="overLoadLabel">
+              <property name="text"><string>GUI OVERLOAD</string></property>
+              <property name="role" stdset="0"><string notr="true">caption</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="overLoadVal">
+              <property name="text"><string notr="true">000.00 %</string></property>
+              <property name="role" stdset="0"><string notr="true">valueDanger</string></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+
+         <!-- Real FPS -->
+         <item>
+          <widget class="QFrame" name="fpsCard">
+           <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="role" stdset="0"><string notr="true">card</string></property>
+           <layout class="QVBoxLayout" name="fpsCardLayout">
+            <property name="leftMargin">   <number>10</number> </property>
+            <property name="topMargin">    <number>6</number>  </property>
+            <property name="rightMargin">  <number>10</number> </property>
+            <property name="bottomMargin"> <number>6</number>  </property>
+            <property name="spacing">      <number>2</number>  </property>
+            <item>
+             <widget class="QLabel" name="fpsLabel">
+              <property name="text"><string>REAL FPS</string></property>
+              <property name="role" stdset="0"><string notr="true">caption</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="fpsVal">
+              <property name="text"><string notr="true">0</string></property>
+              <property name="role" stdset="0"><string notr="true">value</string></property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </item>
+
+       <!-- ====================== Main MCU card ====================== -->
+       <item>
+        <widget class="QFrame" name="mainMcuCard">
+         <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+         <property name="role" stdset="0"><string notr="true">card</string></property>
+         <layout class="QHBoxLayout" name="mainMcuCardLayout">
+          <property name="leftMargin">   <number>10</number> </property>
+          <property name="topMargin">    <number>6</number>  </property>
+          <property name="rightMargin">  <number>10</number> </property>
+          <property name="bottomMargin"> <number>6</number>  </property>
+          <property name="spacing">      <number>10</number> </property>
+          <item>
+           <widget class="QLabel" name="mainMcuLabel">
+            <property name="text"><string>MAIN MCU</string></property>
+            <property name="role" stdset="0"><string notr="true">caption</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="mainMcuName">
+            <property name="text"><string notr="true">-</string></property>
+            <property name="role" stdset="0"><string notr="true">valueDark</string></property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="mainMcu">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text"><string notr="true">-</string></property>
+            <property name="role" stdset="0"><string notr="true">value</string></property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+
+       <item>
+        <spacer name="rootBottomSpacer">
+         <property name="orientation"><enum>Qt::Vertical</enum></property>
+         <property name="sizeHint" stdset="0"><size><width>20</width><height>4</height></size></property>
+        </spacer>
+       </item>
+      </layout>
      </widget>
-    </item>
-    <item row="0" column="1">
-     <widget class="QLabel" name="targetSpeed">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="palette">
-       <palette>
-        <active>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </active>
-        <inactive>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </inactive>
-        <disabled>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>144</red>
-            <green>144</green>
-            <blue>144</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </disabled>
-       </palette>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string notr="true">0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="0" column="0">
-     <widget class="QLabel" name="targetSpeedLabel">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Target Speed:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="9" column="0">
-     <widget class="QLabel" name="mainMcuLabel">
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Main MCU:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="6" column="1">
-     <widget class="QLabel" name="overLoadVal">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="palette">
-       <palette>
-        <active>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>255</red>
-            <green>0</green>
-            <blue>0</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </active>
-        <inactive>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>255</red>
-            <green>0</green>
-            <blue>0</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </inactive>
-        <disabled>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>144</red>
-            <green>144</green>
-            <blue>144</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </disabled>
-       </palette>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string notr="true">0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="1">
-     <widget class="QLabel" name="simLoadVal">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="palette">
-       <palette>
-        <active>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </active>
-        <inactive>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </inactive>
-        <disabled>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>144</red>
-            <green>144</green>
-            <blue>144</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </disabled>
-       </palette>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string notr="true">0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="6" column="0">
-     <widget class="QLabel" name="overLoadLabel">
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>GUI overload:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="9" column="1">
-     <widget class="QLabel" name="mainMcuName">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="palette">
-       <palette>
-        <active>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </active>
-        <inactive>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </inactive>
-        <disabled>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>144</red>
-            <green>144</green>
-            <blue>144</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </disabled>
-       </palette>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string notr="true">0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="4" column="1">
-     <widget class="QLabel" name="guiLoadVal">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="palette">
-       <palette>
-        <active>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </active>
-        <inactive>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </inactive>
-        <disabled>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>144</red>
-            <green>144</green>
-            <blue>144</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </disabled>
-       </palette>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string notr="true">0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="0">
-     <widget class="QLabel" name="simLoadLabel">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Engine Load:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QLabel" name="realSpeed">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="palette">
-       <palette>
-        <active>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </active>
-        <inactive>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </inactive>
-        <disabled>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>144</red>
-            <green>144</green>
-            <blue>144</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </disabled>
-       </palette>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string notr="true">0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="7" column="0">
-     <widget class="QLabel" name="fpsLabel">
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Real FPS:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="4" column="0">
-     <widget class="QLabel" name="guiLoadLabel">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Update Load:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="5" column="0">
-     <widget class="QLabel" name="label_2">
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>7</height>
-       </size>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="0">
-     <widget class="QLabel" name="realSpeedLabel">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string>Real Speed:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="7" column="1">
-     <widget class="QLabel" name="fpsVal">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="palette">
-       <palette>
-        <active>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </active>
-        <inactive>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </inactive>
-        <disabled>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>144</red>
-            <green>144</green>
-            <blue>144</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </disabled>
-       </palette>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string notr="true">0</string>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="0">
-     <widget class="QLabel" name="label">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>0</height>
-       </size>
-      </property>
-      <property name="maximumSize">
-       <size>
-        <width>16777215</width>
-        <height>7</height>
-       </size>
-      </property>
-      <property name="text">
-       <string/>
-      </property>
-     </widget>
-    </item>
-    <item row="10" column="1">
-     <widget class="QLabel" name="mainMcu">
-      <property name="sizePolicy">
-       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
-        <horstretch>0</horstretch>
-        <verstretch>0</verstretch>
-       </sizepolicy>
-      </property>
-      <property name="palette">
-       <palette>
-        <active>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </active>
-        <inactive>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>0</red>
-            <green>0</green>
-            <blue>150</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </inactive>
-        <disabled>
-         <colorrole role="WindowText">
-          <brush brushstyle="SolidPattern">
-           <color alpha="255">
-            <red>144</red>
-            <green>144</green>
-            <blue>144</blue>
-           </color>
-          </brush>
-         </colorrole>
-        </disabled>
-       </palette>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>11</pointsize>
-        <weight>75</weight>
-        <bold>true</bold>
-       </font>
-      </property>
-      <property name="text">
-       <string notr="true">-</string>
-      </property>
-     </widget>
-    </item>
-    <item row="11" column="1">
-     <spacer name="verticalSpacer">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>40</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-   </layout>
-  </widget>
+    </widget>
+   </item>
+  </layout>
  </widget>
  <resources/>
  <connections/>
- <designerdata>
-  <property name="gridDeltaX">
-   <number>9</number>
-  </property>
-  <property name="gridDeltaY">
-   <number>9</number>
-  </property>
-  <property name="gridSnapX">
-   <bool>true</bool>
-  </property>
-  <property name="gridSnapY">
-   <bool>true</bool>
-  </property>
-  <property name="gridVisible">
-   <bool>true</bool>
-  </property>
- </designerdata>
 </ui>

@@ -10,12 +10,22 @@
 #include <QToolBar>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFile>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QGridLayout>
+#include <QFormLayout>
 #include <QSplitter>
 #include <QToolButton>
 #include <QSettings>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QLabel>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 
 #include "editorwidget.h"
 #include "findreplace.h"
@@ -199,7 +209,80 @@ bool EditorWidget::close()
 
 void EditorWidget::newFile()
 {
-    addDocument( "", true );
+    QString sourcepath = MainWindow::self()->getConfigPath("") + "/";
+    // Ask the user for a filename + extension up front so the new tab is
+    // named meaningfully and so save() knows what extension to use later.
+    QDialog dlg( this );
+    dlg.setWindowTitle( tr("New File") );
+
+    QLineEdit* nameEdit = new QLineEdit( &dlg );
+    nameEdit->setPlaceholderText( tr("filename (no extension)") );
+    // Reject characters that would make a bad filename on any platform.
+    QRegularExpression rx( "[A-Za-z0-9_\\-]+" );
+    nameEdit->setValidator( new QRegularExpressionValidator( rx, nameEdit ) );
+
+    QComboBox* extCombo = new QComboBox( &dlg );
+    extCombo->addItems( {".h", ".c", ".cpp", ".ino"} );
+
+    QFormLayout* form = new QFormLayout;
+    form->addRow( new QLabel(tr("Name:"), &dlg),      nameEdit );
+    form->addRow( new QLabel(tr("Extension:"), &dlg), extCombo );
+
+    QLabel* statusLabel = new QLabel( &dlg );
+    statusLabel->setStyleSheet("color: #B91C1C;");
+    statusLabel->setWordWrap( true );
+
+    QDialogButtonBox* buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dlg );
+    QPushButton* okBtn = buttons->button( QDialogButtonBox::Ok );
+    okBtn->setEnabled( false );
+    connect( buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept );
+    connect( buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject );
+
+    QVBoxLayout* root = new QVBoxLayout( &dlg );
+    root->addLayout( form );
+    root->addWidget( statusLabel );
+    root->addWidget( buttons );
+
+    // Live validation: empty → disable, exists in sourcepath → flag + disable.
+    auto revalidate = [=]() {
+        QString name = nameEdit->text().trimmed();
+        if( name.isEmpty() ){
+            statusLabel->clear();
+            okBtn->setEnabled( false );
+            return;
+        }
+        QString full = sourcepath + name + extCombo->currentText();
+        if( QFileInfo::exists( full ) ){
+            statusLabel->setText( tr("A file with this name already exists. Choose a different name.") );
+            okBtn->setEnabled( false );
+        }else{
+            statusLabel->clear();
+            okBtn->setEnabled( true );
+        }
+    };
+    connect( nameEdit, &QLineEdit::textChanged,           &dlg, revalidate );
+    connect( extCombo, &QComboBox::currentTextChanged,    &dlg, revalidate );
+
+    nameEdit->setFocus();
+
+    if( dlg.exec() != QDialog::Accepted ) return;
+
+    QString name = nameEdit->text().trimmed();
+    if( name.isEmpty() ) return;
+
+    QString filepath = sourcepath + name + extCombo->currentText();
+
+    QFileInfo fi( filepath );
+    if( !fi.exists() ){
+        QFile f( filepath );
+        if( f.open( QIODevice::WriteOnly | QIODevice::Text ) ){
+            f.write( "" );
+            f.close();
+        }
+    }
+
+    addDocument( filepath, true );
 }
 
 void EditorWidget::addDocument(  QString file, bool main  )
@@ -214,7 +297,11 @@ void EditorWidget::addDocument(  QString file, bool main  )
     m_docWidget->addTab( ce, tabString );
 
     if( !file.isEmpty() ){
-        ce->setPlainText( fileToString( file, "EditorWidget::addDocument" ) );
+        // Only read content if the file actually exists on disk. newFile()
+        // passes a chosen filename for a brand-new doc that hasn't been
+        // written yet — record the name on the editor but skip the read.
+        if( QFile::exists( file ) )
+            ce->setPlainText( fileToString( file, "EditorWidget::addDocument" ) );
         ce->setFile( file );
     }
     connect( ce->document(), &QTextDocument::contentsChanged,
@@ -243,12 +330,16 @@ void EditorWidget::open()
 #ifdef __EMSCRIPTEN__
     // WASM: async picker. Cancel does not fire the callback.
     QFileDialog::getOpenFileContent(
-        tr("All files")+" (*);;Arduino (*.ino);;Asm (*.asm);;GcBasic (*.gcb)",
+        tr("All files")+" (*);;"
+        +tr("Arduino")+" (*.ino);;"
+        +tr("C/C++")+" (*.c *.cc *.cpp *.h *.hpp);;"
+        +tr("Asm")+" (*.asm);;"
+        +tr("GcBasic")+" (*.gcb)",
         [this]( const QString& fileName, const QByteArray& content )
         {
             if( fileName.isEmpty() ) return;
             // QString tmp = "/tmp/" + QFileInfo( fileName ).fileName();
-            QString tmp = MainWindow::self()->getTempPath( QFileInfo( fileName ).fileName() );
+            QString tmp = MainWindow::self()->getConfigPath( QFileInfo( fileName ).fileName() );
             QFile f( tmp );
             if( !f.open( QIODevice::WriteOnly ) ){
                 qDebug() << "EditorWidget::open: cannot stage" << tmp;
@@ -261,7 +352,11 @@ void EditorWidget::open()
 #else
     QString dir = m_lastDir;
     QString fileName = QFileDialog::getOpenFileName( this, tr("Load File"), dir,
-                       tr("All files")+" (*);;Arduino (*.ino);;Asm (*.asm);;GcBasic (*.gcb)" );
+                       tr("All files")+" (*);;"
+                       +tr("Arduino")+" (*.ino);;"
+                       +tr("C/C++")+" (*.c *.cc *.cpp *.h *.hpp);;"
+                       +tr("Asm")+" (*.asm);;"
+                       +tr("GcBasic")+" (*.gcb)" );
 
     if( !fileName.isEmpty() ) loadFile( fileName );
 #endif
@@ -436,7 +531,11 @@ bool EditorWidget::saveFile( QString fileName )
     QApplication::setOverrideCursor( Qt::WaitCursor );
 
     QTextStream out( &file );
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     out.setCodec("UTF-8");
+#else
+    out.setEncoding(QStringConverter::Utf8);
+#endif
 
     CodeEditor* ce = getCodeEditor();
     out << ce->toPlainText();
@@ -491,10 +590,10 @@ void EditorWidget::documentWasModified()
 
 void EditorWidget::updateDoc( int )
 {
+#ifndef HIDE_SOME_ACTIONS
     CodeEditor* ce = getCodeEditor();
     m_findRepDialog->setEditor( ce );
     if( !ce ) return;
-#ifndef HIDE_SOME_ACTIONS
     bool show = ce->compName() == "None" ? false : true;
     confCompAct->setVisible( show );
     confFileAct->setVisible( true );
@@ -526,8 +625,8 @@ void EditorWidget::closeTab( int index )
     {
         enableFileActs( false );
         enableDebugActs( false );
-        m_findRepDialog->hide();
 #ifndef HIDE_SOME_ACTIONS
+        m_findRepDialog->hide();
         confFileAct->setVisible( false );
         confCompAct->setVisible( false );
 #endif
@@ -537,7 +636,9 @@ void EditorWidget::closeTab( int index )
     if( index > last ) index = last;
     m_docWidget->setCurrentIndex( index );
 
+#ifndef HIDE_SOME_ACTIONS
     m_findRepDialog->setEditor( getCodeEditor() );
+#endif
 }
 
 void EditorWidget::confEditor()
@@ -646,6 +747,7 @@ void EditorWidget::writeSettings()
 
 void EditorWidget::findReplaceDialog()
 {
+#ifndef HIDE_SOME_ACTIONS
     CodeEditor* ce = getCodeEditor();
 
     m_findRepDialog->setEditor( ce );
@@ -654,12 +756,13 @@ void EditorWidget::findReplaceDialog()
     if( text != "" ) m_findRepDialog->setTextToFind( text );
 
     m_findRepDialog->show();
+#endif
 }
 
 void EditorWidget::enableFileActs( bool enable )
 {
-#ifndef HIDE_SOME_ACTIONS
     saveAct->setEnabled( enable );
+#ifndef HIDE_SOME_ACTIONS
     saveAsAct->setEnabled( enable );
     findQtAct->setEnabled( enable );
 #endif
@@ -679,7 +782,9 @@ void EditorWidget::enableDebugActs( bool enable )
     pauseAct->setEnabled( enable );
     resetAct->setEnabled( enable );
     stopAct->setEnabled( enable );
+#ifndef HIDE_SOME_ACTIONS
     compileAct->setEnabled( enable );
+#endif
     loadAct->setEnabled( enable );
 }
 
@@ -702,8 +807,8 @@ void EditorWidget::createWidgets()
     vLayout->setSpacing(0);
     vLayout->setContentsMargins(0, 0, 0, 0);
 
-#ifndef HIDE_SOME_ACTIONS
     hLayout->addWidget( m_editorToolBar );
+#ifndef HIDE_SOME_ACTIONS
     hLayout->addWidget( m_findToolBar );
 #endif
     hLayout->addWidget( m_compileToolBar );
@@ -730,7 +835,7 @@ void EditorWidget::createWidgets()
     m_docWidget = new QTabWidget( this );
     m_docWidget->setObjectName("docWidget");
     m_docWidget->setTabPosition( QTabWidget::North );
-    // m_docWidget->setTabsClosable ( true );
+    m_docWidget->setTabsClosable ( true );
     m_docWidget->setContextMenuPolicy( Qt::CustomContextMenu );
 
     double fontScale = MainWindow::self()->fontScale();
@@ -740,15 +845,17 @@ void EditorWidget::createWidgets()
 
     splitter0->addWidget( m_docWidget );
     splitter0->addWidget( &m_outPane );
-    splitter0->setSizes( {500, 170} );
+    splitter0->setSizes( {500, 0} );
 
     connect( m_docWidget, SIGNAL( tabCloseRequested(int)),
              this,        SLOT(   closeTab(int)), Qt::UniqueConnection);
 
     connect( m_docWidget, SIGNAL(currentChanged(int)), this, SLOT(updateDoc(int)), Qt::UniqueConnection);
 
+#ifndef HIDE_SOME_ACTIONS
     m_findRepDialog = new FindReplace( this );
     m_findRepDialog->setModal( false );
+#endif
 }
 
 void EditorWidget::createActions()
@@ -775,6 +882,7 @@ void EditorWidget::createActions()
         connect( recentFileActs[i], SIGNAL( triggered() ),
                  this,              SLOT( openRecentFile() ), Qt::UniqueConnection);
     }
+#endif
 
     newAct = new QAction(QIcon(":/new.svg"), tr("&New\tCtrl+N"), this);
     newAct->setStatusTip(tr("Create a new file"));
@@ -789,6 +897,7 @@ void EditorWidget::createActions()
     saveAct->setEnabled(false);
     connect(saveAct, SIGNAL(triggered()), this, SLOT(save()), Qt::UniqueConnection);
 
+#ifndef HIDE_SOME_ACTIONS
     saveAsAct = new QAction(QIcon(":/saveas.svg"),tr("Save &As...\tCtrl+Shift+S"), this);
     saveAsAct->setStatusTip(tr("Save the document under a new name"));
     saveAsAct->setEnabled(false);
@@ -851,10 +960,12 @@ void EditorWidget::createActions()
     stopAct->setEnabled(false);
     connect( stopAct, SIGNAL(triggered()), this, SLOT(stop()), Qt::UniqueConnection );
 
+#ifndef HIDE_SOME_ACTIONS
     compileAct = new QAction(QIcon(":/verify.svg"),tr("Compile"), this);
     compileAct->setStatusTip(tr("Compile Source"));
     compileAct->setEnabled(false);
     connect( compileAct, SIGNAL(triggered()), this, SLOT(compile()), Qt::UniqueConnection );
+#endif
 
     loadAct = new QAction(QIcon(":/upload.svg"),tr("UpLoad"), this);
     loadAct->setStatusTip(tr("Load Firmware"));
@@ -878,6 +989,8 @@ void EditorWidget::createToolBars()
 {
     double fs = MainWindow::self()->fontScale()*25;
 
+    m_editorToolBar = new QToolBar( this );
+    m_editorToolBar->setIconSize( QSize( fs, fs ) );
 #ifndef HIDE_SOME_ACTIONS
     m_settingsMenu.addAction( confEditAct );
     m_settingsMenu.addAction( confFileAct );
@@ -889,8 +1002,6 @@ void EditorWidget::createToolBars()
     settingsButton->setIcon( QIcon(":/config.svg") );
     settingsButton->setPopupMode( QToolButton::InstantPopup );
 
-    m_editorToolBar = new QToolBar( this );
-    m_editorToolBar->setIconSize( QSize( fs, fs ) );
     m_editorToolBar->addWidget( settingsButton );
     QWidget* spacer = new QWidget();
     spacer->setFixedWidth( 15 );
@@ -906,21 +1017,24 @@ void EditorWidget::createToolBars()
 
     m_editorToolBar->addWidget( fileButton );
 
-    m_editorToolBar->addAction(newAct);
-    m_editorToolBar->addAction(openAct);
-    m_editorToolBar->addAction(saveAct);
-    m_editorToolBar->addAction(saveAsAct);
-    m_editorToolBar->addSeparator();
-
     m_findToolBar = new QToolBar( this );
     m_findToolBar->setIconSize( QSize( fs, fs ) );
     m_findToolBar->addAction(findQtAct);
     m_findToolBar->addSeparator();
 #endif
+    m_editorToolBar->addAction(newAct);
+    m_editorToolBar->addAction(openAct);
+    m_editorToolBar->addAction(saveAct);
+#ifndef HIDE_SOME_ACTIONS
+    m_editorToolBar->addAction(saveAsAct);
+#endif
+    m_editorToolBar->addSeparator();
 
     m_compileToolBar = new QToolBar( this );
     m_compileToolBar->setIconSize( QSize( fs, fs ) );
+#ifndef HIDE_SOME_ACTIONS
     m_compileToolBar->addAction(compileAct);
+#endif
     m_compileToolBar->addAction(loadAct);
     m_compileToolBar->addSeparator();
     m_compileToolBar->addAction(debugAct);

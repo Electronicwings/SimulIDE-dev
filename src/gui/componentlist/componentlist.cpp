@@ -14,6 +14,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QDir>
+#include <QPainter>
 
 #include "componentlist.h"
 #include "treeitem.h"
@@ -437,6 +438,32 @@ TreeItem* ComponentList::addCategory( QString nameTr, QString name, QString pare
     catItem->setItemExpanded( expanded );
 
     return catItem;
+}
+
+void ComponentList::drawRow( QPainter* painter,
+                             const QStyleOptionViewItem& options,
+                             const QModelIndex& index ) const
+{
+    // Paint a soft rounded tint under category rows so they read as section
+    // headers, then let the base class draw the row (icon, text, branch).
+    // Done here rather than via setBackground() because item-data brushes
+    // paint a square fill and break the stylesheet's border-radius.
+    TreeItem* item = static_cast<TreeItem*>( itemFromIndex( index ) );
+    if( item && item->itemType() > component
+        && !(options.state & QStyle::State_Selected)
+        && !(options.state & QStyle::State_MouseOver) )
+    {
+        QColor tint = (item->itemType() == categ_MAIN) ? QColor(232, 236, 242)
+                                                       : QColor(242, 244, 248);
+        QRectF rowRect = options.rect.adjusted( 4, 2, -4, -2 );
+        painter->save();
+        painter->setRenderHint( QPainter::Antialiasing, true );
+        painter->setPen( Qt::NoPen );
+        painter->setBrush( tint );
+        painter->drawRoundedRect( rowRect, 1, 1 );
+        painter->restore();
+    }
+    QTreeWidget::drawRow( painter, options, index );
 }
 
 void ComponentList::mousePressEvent( QMouseEvent* event )

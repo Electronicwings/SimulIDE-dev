@@ -128,7 +128,9 @@ class Compiler : public QObject, public CompBase
         QString m_fileName;
         QString m_fileExt;
 
+#ifndef __EMSCRIPTEN__
         QProcess m_compProcess;
+#endif
 
         OutPanelText* m_outPane;
 

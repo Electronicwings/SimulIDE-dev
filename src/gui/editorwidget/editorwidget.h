@@ -62,6 +62,7 @@ class EditorWidget : public QWidget, public CompBase
        void scaleFont( int s ) { m_fontSize += s;}
 
        QStringList getFiles() { return m_fileList.keys(); }
+       QList<CodeEditor*> openEditors() { return getCodeEditors(); }
        void restoreFile( QString filePath );
 
     public slots:
