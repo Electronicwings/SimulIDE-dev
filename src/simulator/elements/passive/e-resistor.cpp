@@ -18,6 +18,7 @@ eResistor::~eResistor(){}
 
 void eResistor::stamp()
 {
+    if( !m_ePin[0] || !m_ePin[1] ) return;
     m_ePin[0]->setEnodeComp( m_ePin[1]->getEnode() );
     m_ePin[1]->setEnodeComp( m_ePin[0]->getEnode() );
     stampAdmit();
@@ -25,7 +26,7 @@ void eResistor::stamp()
 
 void eResistor::stampAdmit()
 {
-    if( !m_ePin[0] ) return;
+    if( !m_ePin[0] || !m_ePin[1] ) return;
     if( !m_ePin[0]->isConnected() || !m_ePin[1]->isConnected() ) return;
 
     m_ePin[0]->stampAdmitance( m_admit );
@@ -59,6 +60,7 @@ double eResistor::current()
 
 void eResistor::updateVI()
 {
+    if( !m_ePin[0] || !m_ePin[1] ) { m_current = 0; return; }
     if( m_ePin[0]->isConnected() && m_ePin[1]->isConnected() )
     {
         double volt = m_ePin[0]->getVoltage()-m_ePin[1]->getVoltage();

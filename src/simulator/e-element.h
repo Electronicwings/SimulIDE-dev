@@ -50,6 +50,6 @@ class eElement
 
         QString m_elmId;
 
-        bool m_changed;
+        bool m_changed = false;
         double m_step;
 };

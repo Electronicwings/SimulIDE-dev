@@ -76,7 +76,7 @@ class eNode
                 Connection* next = nullptr;
                 ePin*  epin = nullptr;
                 eNode* node = nullptr;
-                int    nodeNum = 0;
+                int    nodeNum = -1;
                 double value;
         };
         class CallBackElement

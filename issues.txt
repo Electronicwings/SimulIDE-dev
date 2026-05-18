@@ -1,0 +1,255 @@
+SimulIDE Simulator Core - Outstanding Runtime Safety Issues
+============================================================
+
+Scope: apps/simulide/src/simulator/
+Review date: 2026-05-17
+Status: ALREADY FIXED -> see "Already applied" at bottom.
+        Items below are remaining, ordered by severity.
+
+
+================================================================
+CRITICAL
+================================================================
+
+[C1] nextEvent field aliased between Simulator queue and AnalogClock chain
+-----------------------------------------------------------------------
+Files:  src/simulator/elements/analogclock.cpp:38-49
+        src/simulator/elements/analogclock.cpp:36-45 (runEvent traversal)
+        src/simulator/simulator.cpp (addEventAt / cancelEvents / runCircuit)
+
+Problem:
+  AnalogClock walks its clock-element chain using eElement::nextEvent,
+  but the Simulator uses the same field for its time-ordered event queue.
+  If a clock element is ever scheduled as a simulator event (directly,
+  via pauseEvents, or resumeEvents), the two lists corrupt each other.
+  Symptoms: cycle in clock chain (hang in runEvent's while loop),
+            use-after-free, silently dropped events.
+
+Proposed fix:
+  Add a dedicated  eElement* m_nextClock  member used exclusively by
+  AnalogClock for its chain. Update addClkElement / remClkElement /
+  runEvent to walk m_nextClock instead of nextEvent. Never reuse
+  nextEvent for any list other than the Simulator event queue.
+
+Effort: ~10 lines across analogclock.{h,cpp} + 1 line in e-element.h.
+
+
+[C2] Simulator::cancelEvents has no break after match and pre-zeros eventTime
+-----------------------------------------------------------------------
+File:   src/simulator/simulator.cpp:583-602
+
+Problem:
+  el->eventTime = 0; is set before the search; the loop continues past
+  the first unlink, so if duplicates exist (possible after resetSim,
+  which does not clear eventTime on all elements) the re-link logic
+  corrupts the queue.
+
+Proposed fix:
+  Add  break;  after the unlink. Optionally, change resetSim to clear
+  eventTime on every element in m_elementList for symmetry with
+  startSim.
+
+Effort: 1-3 lines.
+
+
+================================================================
+HIGH
+================================================================
+
+[H1] Outer loop in Simulator::solveCircuit has no iteration cap
+-----------------------------------------------------------------------
+File:   src/simulator/simulator.cpp:304-331
+
+Problem:
+  Inner non-linear loop is bounded by m_maxNlstp, but the outer
+    while( m_changedNode || m_nonLinear || !m_converged )
+  is unbounded. A voltChanged callback that re-stamps admittance can
+  re-arm m_changedNode forever. Effective hang on pathological circuits
+  (e.g., reactive + nonlinear feedback).
+
+Proposed fix:
+  Add an outer iteration counter (e.g. m_maxOuterStep, default 1000),
+  set m_warning when exceeded, return like the inner cap path does.
+
+Effort: 5-8 lines.
+
+
+[H2] CircMatrix::addConnections is unbounded recursion
+-----------------------------------------------------------------------
+File:   src/simulator/circmatrix.cpp:38-53
+
+Problem:
+  Recurses once per connected neighbor. A long interconnected chain
+  (hundreds of eNodes in one component) overflows the call stack.
+  Realistic in large MCU-bus designs.
+
+Proposed fix:
+  Convert to iterative BFS/DFS with an explicit  QList<int>  worklist:
+    push starting node, while !empty: pop, visit, push unvisited
+    neighbors. No recursion.
+
+Effort: ~15 lines (rewrite of one function).
+
+
+[H3] CircMatrix::solveMatrix failure is swallowed (warning line commented out)
+-----------------------------------------------------------------------
+File:   src/simulator/simulator.cpp:76-78
+
+Problem:
+  The check  // if (!m_matrix->solveMatrix()) m_warning = 2;  is
+  commented out. A singular/degenerate matrix silently produces
+  b[i]=0 and the simulation continues with bogus voltages. User
+  gets no indication anything went wrong.
+
+Proposed fix:
+  Uncomment the line.
+
+Effort: 1 line.
+
+
+================================================================
+MEDIUM
+================================================================
+
+[M1] eDiode::updateValues can produce NaN that breaks NL convergence
+-----------------------------------------------------------------------
+File:   src/simulator/elements/active/e-diode.cpp:154
+
+Problem:
+  m_zOfset = m_bkDown - m_vt*qLn( -(1 - 0.005/m_satCur) );
+  When m_satCur is near 0.005, the log argument approaches 0 -> -inf
+  -> NaN propagates into m_zOfset -> downstream qExp() yields 0 or inf
+  -> NL convergence test never satisfied -> 100k iterations every tick
+  (severe slowdown / effective hang capped only by m_maxNlstp).
+
+Proposed fix:
+  Clamp m_satCur or guard the log:
+    double arg = -(1 - 0.005/m_satCur);
+    if (arg <= 0) arg = 1e-12;
+    m_zOfset = m_bkDown - m_vt*qLn(arg);
+
+Effort: 2-3 lines.
+
+
+[M2] eDiode::limitStep log of non-positive value
+-----------------------------------------------------------------------
+File:   src/simulator/elements/active/e-diode.cpp:106
+
+Problem:
+  vnew = scale*qLn(vnew/scale);  -- when vnew <= 0, qLn yields
+  NaN/-inf, breaking convergence (see M1 symptoms).
+
+Proposed fix:
+    if (vnew <= 0) return vc;  // before the log
+  Or clamp to a small positive value.
+
+Effort: 1-2 lines.
+
+
+[M3] Simulator::createNodes may leave dangling Connection.node pointers
+-----------------------------------------------------------------------
+File:   src/simulator/simulator.cpp:368-373
+
+Problem:
+  enode->clear() walks its own pin list to detach pins, but other
+  eNodes' m_nodeCompList / m_voltChEl chains may still hold
+  Connection* objects whose node field points at the deleted eNode.
+  On next access (stampMatrix, getConnections) -> use-after-free.
+
+Proposed fix:
+  Before  delete enode;  walk Simulator::m_eNodeList and, for each
+  other eNode, prune any Connection whose node == this. Or maintain
+  back-references so eNode dtor can clean up.
+
+Effort: 10-15 lines (helper + integration).
+
+
+[M4] m_nonLinear traversal captures nextChanged after voltChanged()
+-----------------------------------------------------------------------
+File:   src/simulator/simulator.cpp:312-316
+
+Problem:
+  Loop sets  el->added = false;  before calling voltChanged(). The
+  callback can re-prepend the same element to m_nonLinear, and the
+  subsequent  m_nonLinear = m_nonLinear->nextChanged;  may point
+  back at the element itself -> self-cycle.
+
+Proposed fix:
+  Capture next pointer *before* clearing added and invoking the
+  callback:
+    eElement* next = m_nonLinear->nextChanged;
+    m_nonLinear->added = false;
+    m_nonLinear->voltChanged();
+    m_nonLinear = next;
+
+Effort: 3-4 lines.
+
+
+[M5] Simulator::timerEvent modifies QList during range-for iteration
+-----------------------------------------------------------------------
+File:   src/simulator/simulator.cpp:185-188
+
+Problem:
+    for (Node* node : nodeCompList)
+        if (node->hasCurrents()) nodeCompList.removeOne(node);
+  Qt5's implicit COW saves this from outright UB (range-for copies),
+  but the outer while(!nodeCompList.isEmpty()) is then capped only by
+  a 100-iteration counter. Hides a logic bug.
+
+Proposed fix:
+  Use iterator-based erase or a separate "to-remove" list; keep the
+  100 cap as a safety net.
+
+Effort: 5-8 lines.
+
+
+================================================================
+LOW / INFORMATIONAL
+================================================================
+
+[L1] eCoil::initialize creates eNodes without deleting previous ones on
+     repeated initialize() calls. Currently safe because the order is
+     createNodes -> initialize, but fragile if call order changes.
+     File: src/simulator/elements/passive/e-coil.cpp:33-37
+
+[L2] ePin::getVoltage silently returns 0 when both enodes are null.
+     Behavior, not a crash. Could mask "floating pin" issues from users.
+     File: src/simulator/e-pin.cpp:65-70
+
+
+================================================================
+ALREADY APPLIED (2026-05-17)
+================================================================
+
+[FIXED #6] e-node.h:79
+  Connection::nodeNum default changed from 0 to -1.
+  Prevents silent matrix corruption (stamping onto column 0) when a
+  Connection is constructed with node==nullptr.
+
+[FIXED #2] e-element.h:53
+  bool m_changed; -> bool m_changed = false;
+  Default-initialized in eElement base, covers AnalogClock and all
+  other subclasses. Eliminates indeterminate-read UB.
+
+[FIXED #4] e-resistor.cpp stamp() + stampAdmit()
+  Added m_ePin[0] / m_ePin[1] null guards at top of both functions.
+  stampAdmit previously guarded only m_ePin[0] -- inconsistency fixed.
+
+[FIXED #5] e-resistor.cpp updateVI()
+  Added early return with m_current=0 if either pin is null. Public
+  API current() goes through updateVI(); reachable from probes/UI.
+
+
+================================================================
+SUGGESTED NEXT BATCH (highest impact / lowest risk)
+================================================================
+
+  1. [H3]  Uncomment matrix-failure check.        (1 line)
+  2. [C2]  Add break in cancelEvents.             (1-3 lines)
+  3. [M4]  Capture nextChanged before callback.   (3-4 lines)
+  4. [M1+M2] Guard diode log arguments.           (3-5 lines)
+  5. [H1]  Outer-loop iteration cap.              (5-8 lines)
+  6. [H2]  Iterative addConnections.              (~15 lines)
+  7. [C1]  Split m_nextClock from nextEvent.      (~10 lines, touches AnalogClock only)
+  8. [M3]  Clean dangling Connection pointers.    (10-15 lines)
+  9. [M5]  Safer timerEvent iteration.            (5-8 lines)
